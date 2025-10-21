@@ -8,3 +8,9 @@ fastapi-utils
 uvicorn
 python-multipart
 pytest
+cryptography>=41.0.0
+python-dotenv>=1.0.0
+python-evtx>=0.7.0
+paramiko>=3.0.0
+pywinrm>=0.4.3
+joblib>=1.3.0
