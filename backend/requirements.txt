@@ -1,0 +1,10 @@
+fastapi[all]
+duckdb
+polar-python
+pandas
+shutilwhich
+python-magic
+fastapi-utils
+uvicorn
+python-multipart
+pytest

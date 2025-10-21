@@ -1,0 +1,99 @@
+# === Python / FastAPI ===
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+*.egg-info/
+.env
+venv/
+env/
+.venv/
+.idea/
+.vscode/
+.DS_Store
+
+# === Bytecode and cache ===
+*.log
+*.pot
+*.pyc
+*.pyo
+*.pyd
+__pycache__/
+.pytest_cache/
+coverage/
+htmlcov/
+.cache/
+.mypy_cache/
+*.sqlite3
+
+# === FastAPI / Backend specific ===
+/backend/data/logs/*
+/backend/data/temp/*
+# /backend/data/models/*
+/backend/data/updates/*
+/backend/data/duckdb/*.db
+/backend/tests/__pycache__/
+/backend/*.db
+/backend/*.sqlite
+/backend/*.sqlite3
+/backend/.env
+/backend/tests
+
+# === Frontend / React ===
+/frontend/node_modules/
+/frontend/.env
+/frontend/build/
+/frontend/dist/
+/frontend/.next/
+/frontend/out/
+
+# === USB Build and Packaging ===
+/usb_build/output/
+/usb_build/dist/
+/usb_build/temp/
+/usb_build/__pycache__/
+/usb_build/*.log
+
+# === Model files / Training data ===
+/training_model_code/__pycache__/
+/training_model_code/checkpoints/
+/training_model_code/outputs/
+/training_model_code/logs/
+/training_model_code/datasets/
+/training_model_code/*.pt
+/training_model_code/*.h5
+/training_model_code/*.pkl
+/training_model_code/*.onnx
+/training_model_code/*.tflite
+
+# === OS and Misc ===
+Thumbs.db
+ehthumbs.db
+desktop.ini
+*.bak
+*.tmp
+*.swp
+*.swo
+
+# === PyInstaller / Build artifacts ===
+build/
+dist/
+*.spec
+
+# === Notebooks / Temporary data ===
+*.ipynb_checkpoints/
+*.ipynb~
+*.old
+*.orig
+
+# === Logs ===
+*.log
+logs/
+*.out
+*.err
+
+# === VS Code Settings ===
+.vscode/
+.history/
+.qodo

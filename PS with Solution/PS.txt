@@ -1,0 +1,28 @@
+Problem Statement Info
+Problem Statement ID	SIH25235
+Problem Statement Title	Portable log analysis tool for isolated network.
+Description	
+Background
+Continuous monitoring of systems and network is extremely essential to detect, prevent, and respond to the cyber security threats. Security operation centre (SOC) plays an important role for situational awareness of an organisation, where all logs are monitored continuously. This provides a near real-time perception of threat landscape. However, in case of a scenario where multiple isolated networks are to be monitored, it may be important to undertake this activity in all isolated networks independently. The central monitoring may also be taken up separately, only the logs are collected in the central location on regular intervals.
+
+Detailed Description
+a) In this problem statement, it is envisaged to developed a portable self-oriented, fully functional log analysis tool to monitor the cyber security events on isolated network.
+b) These isolated tools may be configured to prepare a (light) informal and efficient environment, to provide the solution in respect of the target IT infrastructure of the isolated network.
+c) The tool should be efficient to detect cyber security attacks based on the malicious tactics techniques and procedures (TTPs) signature, anomaly, heuristic, behavioural, rule-based, network traffic analysis, thread intelligence feeds, etc.
+d) There should be a simpler and efficient methodology to update the tool environment and necessary component for keeping it updated.
+
+Expected Solution
+The solution should be a portable, easy-to-use log analysis tool capable of collecting, parsing, and analysing logs from various system and network devices. It should function without dependency on external cloud services, ensuring data privacy and flexibility across different environments on isolated network as well as central location.
+
+Key Features Expected:
+a) Portability: Tool should be easily deployable across different platforms (Windows, Linux, Mac) with minimal setup.
+b) Multi-source Log Collection: Ability to collect logs from various peripheral devices using standard protocols (e.g., Syslog, FTP, USB).
+c) Log Parsing & Normalization: Support for handling logs in different formats and converting them into a structured, readable form.
+d) Log Analysis: Basic analysis functions including searching, filtering, and highlighting key events or anomalies.
+e) User Interface: A simple graphical or web-based interface for ease of use by technical and non-technical users.
+f) Offline Functionality: Tool should work without requiring constant internet access.
+g) Security: Ensure secure handling of log data, with optional authentication to control access.
+h) Reporting: Ability to generate and export simple analysis reports.
+Category	Software
+Technology Bucket	Smart Automation
+Organization Type	Industry Personnel
