@@ -4,240 +4,257 @@ import platform
 import subprocess
 from pathlib import Path
 from datetime import datetime as dt
-from config import LOGS_DIR, TEMP_DIR
-from typing import List, Tuple, Optional
-import paramiko
-import winrm
+from typing import List, Dict, Optional
+import logging
 
-LOGS_DIR = Path(LOGS_DIR)
-TEMP_DIR = Path(TEMP_DIR)
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
-class LogCollector:
+
+class CrossPlatformLogCollector:
     """
-    Handle offline log collection from multiple OS & air-gapped environments
-    Supports local collection and remote collection via SSH/WinRM
+    Comprehensive log collector for Windows, Linux, and macOS
+    Supports local system log collection from OS-specific locations
     """
 
-    def __init__(self, logs_dir: Path = None, temp_dir: str = None):
-        self.logs_dir = logs_dir if logs_dir else LOGS_DIR
-        self.temp_dir = temp_dir if temp_dir else TEMP_DIR
-        self.temp_dir.mkdir(parents=True, exist_ok=True)
-        self.supported_ext = [".log", ".txt", ".evtx", ".json", ".csv", ".evt", ".gz"]
+    def __init__(self, output_dir: Path):
+        self.output_dir = Path(output_dir)
+        self.output_dir.mkdir(parents=True, exist_ok=True)
+        self.system = platform.system()
+        self.collected_files: List[Path] = []
+        
+        # Define log locations per OS
+        self.log_paths = self._get_system_log_paths()
 
-    def collect_local(self) -> List[Path]:
-        """Scan LOGS_DIR and return list of raw log file paths.
-        Also copy matched files into a timestamped temp folder for processing."""
+    def _get_system_log_paths(self) -> Dict[str, List[str]]:
+        """Get OS-specific log file paths"""
+        
+        if self.system == "Linux":
+            return {
+                "system": [
+                    "/var/log/syslog",
+                    "/var/log/messages",
+                    "/var/log/kern.log",
+                    "/var/log/dmesg",
+                ],
+                "auth": [
+                    "/var/log/auth.log",
+                    "/var/log/secure",
+                ],
+                "application": [
+                    "/var/log/apache2/*.log",
+                    "/var/log/nginx/*.log",
+                    "/var/log/mysql/*.log",
+                ],
+                "journal": ["journalctl"]  # Special handling
+            }
+        
+        elif self.system == "Darwin":  # macOS
+            return {
+                "system": [
+                    "/var/log/system.log",
+                    "/var/log/install.log",
+                ],
+                "auth": [
+                    "/var/log/secure.log",
+                ],
+                "application": [
+                    "/Library/Logs/*.log",
+                    "~/Library/Logs/*.log",
+                ],
+                "unified": ["log show"]  # macOS Unified Logging
+            }
+        
+        elif self.system == "Windows":
+            return {
+                "event_logs": [
+                    "System",
+                    "Application",
+                    "Security",
+                    "Setup",
+                ]
+            }
+        
+        return {}
 
-        collected = []
+    def collect_linux_logs(self) -> List[Path]:
+        """Collect logs from Linux systems"""
+        logger.info("🐧 Collecting Linux logs...")
         timestamp = dt.now().strftime("%Y%m%d_%H%M%S")
-        dest = self.temp_dir / f"collected_{timestamp}"
+        dest = self.output_dir / f"linux_logs_{timestamp}"
         dest.mkdir(parents=True, exist_ok=True)
 
-        for root, _, files in os.walk(self.logs_dir):
-            for f in files:
-                p = Path(root) / f
-                if p.suffix.lower() in self.supported_ext or True:
-                    try:
-                        dst = dest / f
-                        shutil.copy2(p, dst)
-                        collected.append(dst)
-                        print(f"[collected] Copied {p} to {dst}")
-                    except Exception as e:
-                        print(f"[collected] Error copying file {p}: {e}")
-        return collected
+        # Collect standard log files
+        for category, paths in self.log_paths.items():
+            if category == "journal":
+                # Handle systemd journal separately
+                self._collect_journalctl(dest)
+                continue
+            
+            for path_pattern in paths:
+                try:
+                    # Handle wildcards
+                    from glob import glob
+                    matching_files = glob(path_pattern)
+                    
+                    for log_file in matching_files:
+                        log_path = Path(log_file)
+                        if log_path.exists() and log_path.is_file():
+                            dest_file = dest / f"{category}_{log_path.name}"
+                            shutil.copy2(log_path, dest_file)
+                            self.collected_files.append(dest_file)
+                            logger.info(f"✅ Collected: {log_file}")
+                except PermissionError:
+                    logger.warning(f"⚠️ Permission denied: {path_pattern}")
+                except Exception as e:
+                    logger.error(f"❌ Error collecting {path_pattern}: {e}")
+
+        return self.collected_files
+
+    def _collect_journalctl(self, dest: Path):
+        """Collect systemd journal logs"""
+        try:
+            output_file = dest / "journalctl.log"
+            # Get last 10,000 lines
+            cmd = ["journalctl", "-n", "10000", "--no-pager"]
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
+            
+            if result.returncode == 0:
+                with open(output_file, 'w') as f:
+                    f.write(result.stdout)
+                self.collected_files.append(output_file)
+                logger.info(f"✅ Collected journalctl logs")
+            else:
+                logger.warning(f"⚠️ journalctl failed: {result.stderr}")
+        except subprocess.TimeoutExpired:
+            logger.error("❌ journalctl command timed out")
+        except FileNotFoundError:
+            logger.warning("⚠️ journalctl not found (non-systemd system?)")
+        except Exception as e:
+            logger.error(f"❌ Error collecting journalctl: {e}")
+
+    def collect_macos_logs(self) -> List[Path]:
+        """Collect logs from macOS systems"""
+        logger.info("🍎 Collecting macOS logs...")
+        timestamp = dt.now().strftime("%Y%m%d_%H%M%S")
+        dest = self.output_dir / f"macos_logs_{timestamp}"
+        dest.mkdir(parents=True, exist_ok=True)
+
+        # Collect standard log files
+        for category, paths in self.log_paths.items():
+            if category == "unified":
+                # Handle macOS Unified Logging
+                self._collect_macos_unified(dest)
+                continue
+            
+            for path_pattern in paths:
+                try:
+                    # Expand user directory
+                    path_pattern = os.path.expanduser(path_pattern)
+                    from glob import glob
+                    matching_files = glob(path_pattern)
+                    
+                    for log_file in matching_files:
+                        log_path = Path(log_file)
+                        if log_path.exists() and log_path.is_file():
+                            dest_file = dest / f"{category}_{log_path.name}"
+                            shutil.copy2(log_path, dest_file)
+                            self.collected_files.append(dest_file)
+                            logger.info(f"✅ Collected: {log_file}")
+                except PermissionError:
+                    logger.warning(f"⚠️ Permission denied: {path_pattern}")
+                except Exception as e:
+                    logger.error(f"❌ Error collecting {path_pattern}: {e}")
+
+        return self.collected_files
+
+    def _collect_macos_unified(self, dest: Path):
+        """Collect macOS Unified Logging System logs"""
+        try:
+            output_file = dest / "unified_log.txt"
+            # Get last 1 hour of logs
+            cmd = ["log", "show", "--predicate", "processImagePath contains 'System'", 
+                   "--style", "syslog", "--last", "1h"]
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
+            
+            if result.returncode == 0:
+                with open(output_file, 'w') as f:
+                    f.write(result.stdout)
+                self.collected_files.append(output_file)
+                logger.info(f"✅ Collected unified logs")
+            else:
+                logger.warning(f"⚠️ log show failed: {result.stderr}")
+        except subprocess.TimeoutExpired:
+            logger.error("❌ log show command timed out")
+        except Exception as e:
+            logger.error(f"❌ Error collecting unified logs: {e}")
 
     def collect_windows_logs(self) -> List[Path]:
-        """Collect Windows Event Logs using wevtutil (local only)"""
-        collected = []
+        """Collect Windows Event Logs using wevtutil"""
+        logger.info("🪟 Collecting Windows logs...")
         timestamp = dt.now().strftime("%Y%m%d_%H%M%S")
-        dest = self.temp_dir / f"windows_logs_{timestamp}"
+        dest = self.output_dir / f"windows_logs_{timestamp}"
         dest.mkdir(parents=True, exist_ok=True)
 
-        if platform.system() != "Windows":
-            print("[collected] Windows log collection only available on Windows systems")
-            return collected
-
-        # Common Windows Event Log channels
-        channels = [
-            "System", "Application", "Security",
-            "Setup", "ForwardedEvents"
-        ]
-
-        for channel in channels:
+        for channel in self.log_paths.get("event_logs", []):
             try:
                 output_file = dest / f"{channel}.evtx"
-                # Export using wevtutil
                 cmd = f'wevtutil epl "{channel}" "{output_file}" /ow:true'
-                result = subprocess.run(cmd, shell=True, capture_output=True, text=True)
+                result = subprocess.run(cmd, shell=True, capture_output=True, 
+                                     text=True, timeout=30)
 
                 if result.returncode == 0:
-                    collected.append(output_file)
-                    print(f"[collected] Exported Windows {channel} log to {output_file}")
+                    self.collected_files.append(output_file)
+                    logger.info(f"✅ Collected Windows {channel} log")
                 else:
-                    print(f"[collected] Failed to export {channel} log: {result.stderr}")
-
+                    logger.warning(f"⚠️ Failed to export {channel}: {result.stderr}")
+            except subprocess.TimeoutExpired:
+                logger.error(f"❌ Timeout collecting {channel}")
             except Exception as e:
-                print(f"[collected] Error collecting Windows {channel} log: {e}")
+                logger.error(f"❌ Error collecting {channel}: {e}")
 
-        return collected
+        return self.collected_files
 
-    def collect_network_logs(self, network_path: str, username: str = None, password: str = None) -> List[Path]:
-        """Collect logs from network share (SMB/CIFS)"""
-        collected = []
-        timestamp = dt.now().strftime("%Y%m%d_%H%M%S")
-        dest = self.temp_dir / f"network_logs_{timestamp}"
-        dest.mkdir(parents=True, exist_ok=True)
-
-        try:
-            # Mount network drive (Windows)
-            if platform.system() == "Windows":
-                drive_letter = "Z:"  # Use available drive letter
-                if username and password:
-                    cmd = f'net use {drive_letter} "{network_path}" /user:{username} {password} /persistent:no'
-                else:
-                    cmd = f'net use {drive_letter} "{network_path}" /persistent:no'
-
-                result = subprocess.run(cmd, shell=True, capture_output=True, text=True)
-                if result.returncode != 0:
-                    print(f"[collected] Failed to mount network drive: {result.stderr}")
-                    return collected
-
-                # Copy files from mounted drive
-                network_dir = Path(drive_letter)
-                for root, _, files in os.walk(network_dir):
-                    for f in files:
-                        p = Path(root) / f
-                        if p.suffix.lower() in self.supported_ext:
-                            try:
-                                dst = dest / f
-                                shutil.copy2(p, dst)
-                                collected.append(dst)
-                                print(f"[collected] Copied network file {p} to {dst}")
-                            except Exception as e:
-                                print(f"[collected] Error copying network file {p}: {e}")
-
-                # Unmount drive
-                subprocess.run(f'net use {drive_letter} /delete /y', shell=True, capture_output=True)
-
-            else:
-                print("[collected] Network log collection currently only supported on Windows")
-
-        except Exception as e:
-            print(f"[collected] Error in network log collection: {e}")
-
-        return collected
-
-    def collect_remote_ssh(self, host: str, username: str, key_path: str = None,
-                          password: str = None, remote_paths: List[str] = None) -> List[Path]:
-        """Collect logs from remote Linux/Unix systems via SSH"""
-        collected = []
-        timestamp = dt.now().strftime("%Y%m%d_%H%M%S")
-        dest = self.temp_dir / f"remote_ssh_{timestamp}"
-        dest.mkdir(parents=True, exist_ok=True)
-
-        try:
-            # Initialize SSH client
-            ssh = paramiko.SSHClient()
-            ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-
-            # Connect using key or password
-            if key_path:
-                private_key = paramiko.RSAKey.from_private_key_file(key_path)
-                ssh.connect(host, username=username, pkey=private_key)
-            elif password:
-                ssh.connect(host, username=username, password=password)
-            else:
-                raise ValueError("Either key_path or password must be provided")
-
-            # Open SFTP session
-            sftp = ssh.open_sftp()
-
-            # Download files
-            for remote_path in remote_paths or ["/var/log/syslog", "/var/log/auth.log"]:
-                try:
-                    remote_file = Path(remote_path)
-                    local_file = dest / remote_file.name
-
-                    sftp.get(str(remote_file), str(local_file))
-                    collected.append(local_file)
-                    print(f"[collected] Downloaded {remote_path} to {local_file}")
-
-                except Exception as e:
-                    print(f"[collected] Error downloading {remote_path}: {e}")
-
-            sftp.close()
-            ssh.close()
-
-        except Exception as e:
-            print(f"[collected] SSH collection error: {e}")
-
-        return collected
-
-    def collect_remote_winrm(self, host: str, username: str, password: str,
-                           remote_paths: List[str] = None) -> List[Path]:
-        """Collect logs from remote Windows systems via WinRM"""
-        collected = []
-        timestamp = dt.now().strftime("%Y%m%d_%H%M%S")
-        dest = self.temp_dir / f"remote_winrm_{timestamp}"
-        dest.mkdir(parents=True, exist_ok=True)
-
-        try:
-            # Initialize WinRM session
-            session = winrm.Session(f'http://{host}:5985/wsman',
-                                  auth=(username, password),
-                                  transport='ntlm')
-
-            # Default Windows log paths
-            default_paths = [
-                'C:\\Windows\\System32\\winevt\\Logs\\System.evtx',
-                'C:\\Windows\\System32\\winevt\\Logs\\Application.evtx',
-                'C:\\Windows\\System32\\winevt\\Logs\\Security.evtx'
-            ]
-
-            for remote_path in remote_paths or default_paths:
-                try:
-                    # Use PowerShell to copy file to temp location and read it
-                    ps_script = f'''
-                    $tempFile = [System.IO.Path]::GetTempFileName()
-                    Copy-Item "{remote_path}" $tempFile
-                    [Convert]::ToBase64String([IO.File]::ReadAllBytes($tempFile))
-                    Remove-Item $tempFile
-                    '''
-
-                    result = session.run_ps(ps_script)
-
-                    if result.status_code == 0:
-                        # Decode base64 content
-                        import base64
-                        file_content = base64.b64decode(result.std_out.decode())
-
-                        local_file = dest / Path(remote_path).name
-                        with open(local_file, 'wb') as f:
-                            f.write(file_content)
-
-                        collected.append(local_file)
-                        print(f"[collected] Downloaded {remote_path} to {local_file}")
-                    else:
-                        print(f"[collected] Failed to download {remote_path}: {result.std_err.decode()}")
-
-                except Exception as e:
-                    print(f"[collected] Error downloading {remote_path}: {e}")
-
-        except Exception as e:
-            print(f"[collected] WinRM collection error: {e}")
-
-        return collected
-
-    def read_raw_file(self, file_path: Path, max_bytes: int = 10_000_000) -> Tuple[Path, bytes]:
+    def collect_all(self) -> List[Path]:
         """
-        Read raw file bytes (up to max_bytes). Useful for handing raw content to parser.
-        Returns (path, content_bytes)
+        Main entry point: Detect OS and collect appropriate logs
         """
-        file_path = Path(file_path)
-        if not file_path.exists() or not file_path.is_file():
-            raise FileNotFoundError(f"File not found: {file_path}")
+        logger.info(f"🚀 Starting log collection on {self.system}...")
+        
+        if self.system == "Linux":
+            return self.collect_linux_logs()
+        elif self.system == "Darwin":
+            return self.collect_macos_logs()
+        elif self.system == "Windows":
+            return self.collect_windows_logs()
+        else:
+            logger.error(f"❌ Unsupported operating system: {self.system}")
+            return []
 
-        with file_path.open("rb") as f:
-            content = f.read(max_bytes)
+    def get_collection_report(self) -> Dict:
+        """Generate a summary report of collected logs"""
+        total_size = sum(f.stat().st_size for f in self.collected_files if f.exists())
+        
+        return {
+            "system": self.system,
+            "timestamp": dt.now().isoformat(),
+            "files_collected": len(self.collected_files),
+            "total_size_bytes": total_size,
+            "total_size_mb": round(total_size / (1024 * 1024), 2),
+            "files": [str(f) for f in self.collected_files]
+        }
 
-        return (file_path, content)
+
+# Example usage
+if __name__ == "__main__":
+    collector = CrossPlatformLogCollector(output_dir=Path("/tmp/collected_logs"))
+    collected = collector.collect_all()
+    
+    print("\n📊 Collection Report:")
+    report = collector.get_collection_report()
+    for key, value in report.items():
+        if key != "files":
+            print(f"  {key}: {value}")
+    
+    print(f"\n✅ Collected {len(collected)} log files")
