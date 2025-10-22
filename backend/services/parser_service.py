@@ -97,7 +97,7 @@ class LogParser:
     @staticmethod
     def parse_generic_text(lines: List[str]) -> pl.DataFrame:
         """ Very simple parser: attempt to find ISO-like timestamp, otherwise keep raw.
-        Columns: timestamp, message, raw
+        Columns: timestamp, host, process, pid, message, raw
         """
 
         iso_ts_re = re.compile(r'(?P<ts>\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})')
@@ -115,10 +115,20 @@ class LogParser:
                     ts = dt.datetime.fromisoformat(m.group('ts'))
                 except ValueError:
                     ts = None
-            records.append({"timestamp": ts, "message": ln, "raw": ln})
+            records.append({
+                "timestamp": ts,
+                "host": None,
+                "process": None,
+                "pid": None,
+                "message": ln,
+                "raw": ln
+            })
 
         df = pl.DataFrame(records).with_columns([
             pl.col("timestamp").cast(pl.Datetime(time_unit = "ms")),
+            pl.col("host").cast(pl.Utf8),
+            pl.col("process").cast(pl.Utf8),
+            pl.col("pid").cast(pl.Utf8),
             pl.col("message").cast(pl.Utf8),
             pl.col("raw").cast(pl.Utf8),
         ])
@@ -137,13 +147,23 @@ class LogParser:
                     "timestamp": pd.to_datetime(log.get("timestamp")),
                     "host": log.get("host", "unknown"),
                     "process": log.get("process", "unknown"),
+                    "pid": None,
                     "message": log.get("message", line),
                     "raw": line
                 })
             except json.JSONDecodeError:
                 continue
 
-        return pl.DataFrame(records)
+        df = pl.DataFrame(records).with_columns([
+            pl.col("timestamp").cast(pl.Datetime(time_unit = "ms")),
+            pl.col("host").cast(pl.Utf8),
+            pl.col("process").cast(pl.Utf8),
+            pl.col("pid").cast(pl.Utf8),
+            pl.col("message").cast(pl.Utf8),
+            pl.col("raw").cast(pl.Utf8),
+        ])
+
+        return df
 
     @staticmethod
     def parse_from_filepaths(filepaths: List[Path]) -> pl.DataFrame:

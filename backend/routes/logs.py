@@ -46,7 +46,7 @@ async def upload_logs(file: UploadFile = File(...)):
 
         return UploadResponse(
             status="success",
-            message=f"File uploaded successfully",
+            message="File uploaded successfully",
             filename=file.filename
         )
     except Exception as e:
@@ -56,20 +56,20 @@ async def upload_logs(file: UploadFile = File(...)):
         )
 
 
-@router.post("/collect/local")
+@router.post("/collect")
 async def collect_local_logs(background_tasks: BackgroundTasks):
     """
     Collect logs from the local system (cross-platform)
     Supports: Windows, Linux, macOS
     """
     import platform
-    
+
     try:
-        collector = LogCollector()
-        
+        collector = LogCollector(temp_dir=TEMP_DIR)
+
         # Detect OS and collect appropriate logs
         system = platform.system()
-        
+
         if system == "Linux":
             collected_files = collector.collect_linux_logs()
         elif system == "Darwin":  # macOS
@@ -81,22 +81,19 @@ async def collect_local_logs(background_tasks: BackgroundTasks):
                 status_code=400,
                 detail=f"Unsupported operating system: {system}"
             )
-        
+
         # Copy to TEMP_DIR for processing
         processed_files = []
         for file in collected_files:
             dest = TEMP_DIR / file.name
             shutil.copy2(file, dest)
             processed_files.append(str(dest))
-        
+
         return {
-            "status": "success",
-            "message": f"Collected logs from {system}",
-            "system": system,
-            "files_collected": len(processed_files),
-            "files": processed_files[:10]  # Limit response size
+            "status": "Logs collected successfully",
+            "collected_files": processed_files[:10]  # Limit response size
         }
-        
+
     except Exception as e:
         raise HTTPException(
             status_code=500,
@@ -176,7 +173,7 @@ async def parse_uploaded_logs():
                 }
         
         return {
-            "status": "success",
+            "status": "Logs parsed successfully",
             "files_parsed": len(parsed_data),
             "details": parsed_data
         }
