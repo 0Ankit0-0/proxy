@@ -87,7 +87,7 @@ class LogParser:
             pl.col("timestamp").cast(pl.Datetime(time_unit = "ms")),
             pl.col("host").cast(pl.Utf8),
             pl.col("process").cast(pl.Utf8),
-            pl.col("pid").cast(pl.Utf8),
+            pl.col("pid").cast(pl.Int64)
             pl.col("message").cast(pl.Utf8),
             pl.col("raw").cast(pl.Utf8),
         ])
@@ -128,7 +128,7 @@ class LogParser:
             pl.col("timestamp").cast(pl.Datetime(time_unit = "ms")),
             pl.col("host").cast(pl.Utf8),
             pl.col("process").cast(pl.Utf8),
-            pl.col("pid").cast(pl.Utf8),
+            pl.col("pid").cast(pl.Int64)
             pl.col("message").cast(pl.Utf8),
             pl.col("raw").cast(pl.Utf8),
         ])
@@ -158,7 +158,7 @@ class LogParser:
             pl.col("timestamp").cast(pl.Datetime(time_unit = "ms")),
             pl.col("host").cast(pl.Utf8),
             pl.col("process").cast(pl.Utf8),
-            pl.col("pid").cast(pl.Utf8),
+            pl.col("pid").cast(pl.Int64)
             pl.col("message").cast(pl.Utf8),
             pl.col("raw").cast(pl.Utf8),
         ])

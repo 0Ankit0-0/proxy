@@ -1,16 +1,48 @@
-fastapi[all]
-duckdb
-polar-python
-pandas
+# ===============================
+# Project Quorum - Backend Requirements
+# Production Safe Version
+# ===============================
+
+# Core Framework
+fastapi[all]==0.104.1
+uvicorn[standard]==0.24.0
+python-multipart
+
+# Database & Data Processing
+duckdb>=0.9.5     # Core embedded analytics DB
+polars==0.19.19      # High-performance dataframe engine
+pandas               # Optional fallback for data handling
+
+# AI/ML
+scikit-learn==1.3.2
+pyod==1.1.2           # Anomaly detection engine
+joblib
+tensorflow # For TFLite model inference
+numpy
+
+# Security & Crypto
+cryptography>=41.0.0
+python-dotenv
+pyjwt==2.8.0          # JWT authentication
+
+# Log Collection
+python-evtx
+paramiko>=3.0.0        # SSH collection
+pywinrm>=0.4.3         # Windows Remote Management
+
+# Report Generation
+reportlab==4.0.7       # PDF report generation
+openpyxl==3.1.2        # Excel export
+
+# System Utilities
 shutilwhich
 python-magic
-fastapi-utils
-uvicorn
-python-multipart
+psutil                 # System monitoring
+
+# Testing
 pytest
-cryptography>=41.0.0
-python-dotenv>=1.0.0
-python-evtx>=0.7.0
-paramiko>=3.0.0
-pywinrm>=0.4.3
-joblib>=1.3.0
+pytest-asyncio
+httpx
+
+# Optional / Recommended
+python-json-logger      # Structured JSON logs

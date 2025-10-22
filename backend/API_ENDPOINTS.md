@@ -6,17 +6,42 @@ This document describes all available API endpoints for the Log Analysis System.
 ## Base URL
 All endpoints are prefixed with `/api/v1`
 
+## Authentication
+Currently, no authentication is implemented. All endpoints are publicly accessible.
+
+## Rate Limiting
+No rate limiting is currently implemented.
+
+## Error Response Format
+All endpoints return standardized error responses:
+```json
+{
+  "detail": "Error message description"
+}
+```
+
 ## Endpoints
 
 ### Health Check
 - **GET** `/health/`
+- **Status**: ✅ Fully Implemented
 - **Description**: Comprehensive health check for API, database, and AI models
-- **Response**:
+- **Parameters**: None
+- **Request Example**:
+  ```bash
+  GET /api/v1/health/
+  ```
+- **Success Response** (200):
   ```json
   {
-    "api": "ok",
-    "database": "ok",
-    "ai_models": "ok"
+    "status": "ok",
+    "message": "System is Running"
+  }
+  ```
+- **Error Response** (500):
+  ```json
+  {
+    "detail": "Health check failed: Database connection error"
   }
   ```
 
@@ -24,10 +49,22 @@ All endpoints are prefixed with `/api/v1`
 
 #### Upload Logs
 - **POST** `/logs/upload`
+- **Status**: ✅ Fully Implemented
 - **Description**: Upload a log file for offline analysis
 - **Supported Formats**: .log, .txt, .evtx, .json, .csv, .evt, .gz
-- **Request**: Multipart form data with file
-- **Response Model**: UploadResponse
+- **Parameters**:
+  - `file` (file): Log file to upload (multipart/form-data)
+- **Validation**:
+  - File size limit: Not specified
+  - File type validation: Based on extension
+- **Request Example**:
+  ```bash
+  POST /api/v1/logs/upload
+  Content-Type: multipart/form-data
+
+  file: example.log
+  ```
+- **Success Response** (200):
   ```json
   {
     "status": "success",
@@ -35,6 +72,19 @@ All endpoints are prefixed with `/api/v1`
     "filename": "example.log"
   }
   ```
+- **Error Responses**:
+  - 400: Invalid file format
+    ```json
+    {
+      "detail": "Unsupported file format. Supported: .log, .txt, .evtx, .json, .csv, .evt, .gz"
+    }
+    ```
+  - 500: Upload failed
+    ```json
+    {
+      "detail": "Upload failed: Disk full"
+    }
+    ```
 
 #### Collect Local Logs
 - **POST** `/logs/collect/local`

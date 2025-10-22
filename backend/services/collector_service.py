@@ -7,6 +7,7 @@ from pathlib import Path
 from datetime import datetime as dt
 from typing import List, Dict, Optional
 import logging
+from ftplib import FTP, FTP_TLS
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -418,7 +419,132 @@ class LogCollector:
         else:
             logger.error(f"❌ Unsupported operating system: {self.system}")
             return []
+        
+     def collect_from_ftp(
+        self, 
+        host: str, 
+        username: str = 'anonymous', 
+        password: str = '',
+        remote_dir: str = '/',
+        use_tls: bool = False,
+        file_patterns: List[str] = None
+    ) -> List[Path]:
+        """
+        Collect log files from FTP server
+        
+        Args:
+            host: FTP server hostname/IP
+            username: FTP username (default: anonymous)
+            password: FTP password
+            remote_dir: Remote directory to scan (default: /)
+            use_tls: Use FTPS (FTP over TLS) if True
+            file_patterns: List of file patterns to match (e.g., ['*.log', '*.txt'])
+        
+        Returns:
+            List of collected file paths
+        """
+        logger.info(f"🔐 Collecting logs from FTP server: {host}")
+        collected_files = []
+        
+        try:
+            # Connect to FTP server
+            if use_tls:
+                ftp = FTP_TLS(host)
+                ftp.login(username, password)
+                ftp.prot_p()  # Secure data connection
+            else:
+                ftp = FTP(host)
+                ftp.login(username, password)
+            
+            # Change to remote directory
+            ftp.cwd(remote_dir)
+            
+            # Get list of files
+            files = []
+            ftp.retrlines('LIST', files.append)
+            
+            # Default patterns if none specified
+            if not file_patterns:
+                file_patterns = ['*.log', '*.txt', '*.evtx', '*.json']
+            
+            # Download matching files
+            for file_info in files:
+                # Parse file info (format varies by FTP server)
+                parts = file_info.split()
+                if len(parts) < 9:
+                    continue
+                    
+                filename = parts[-1]
+                
+                # Check if file matches patterns
+                import fnmatch
+                if any(fnmatch.fnmatch(filename, pattern) for pattern in file_patterns):
+                    try:
+                        local_path = self.output_dir / f"ftp_{host}_{filename}"
+                        
+                        # Download file
+                        with open(local_path, 'wb') as f:
+                            ftp.retrbinary(f'RETR {filename}', f.write)
+                        
+                        collected_files.append(local_path)
+                        self.collected_files.append(local_path)
+                        logger.info(f"✅ Downloaded: {filename}")
+                        
+                    except Exception as e:
+                        logger.warning(f"⚠️ Failed to download {filename}: {e}")
+            
+            ftp.quit()
+            logger.info(f"✅ FTP collection complete: {len(collected_files)} files")
+            
+        except Exception as e:
+            logger.error(f"❌ FTP collection failed: {e}")
+        
+        return collected_files
 
+# Add corresponding route in routes/logs.py
+
+from pydantic import BaseModel
+from typing import Optional, List
+
+class FTPCollectionRequest(BaseModel):
+    host: str
+    username: str = 'anonymous'
+    password: str = ''
+    remote_dir: str = '/'
+    use_tls: bool = False
+    file_patterns: Optional[List[str]] = None
+
+@router.post("/collect/ftp")
+async def collect_from_ftp(request: FTPCollectionRequest):
+    """
+    Collect logs from FTP/FTPS server
+    Supports both standard FTP and FTPS (FTP over TLS)
+    """
+    try:
+        collector = LogCollector(temp_dir=TEMP_DIR)
+        
+        collected_files = collector.collect_from_ftp(
+            host=request.host,
+            username=request.username,
+            password=request.password,
+            remote_dir=request.remote_dir,
+            use_tls=request.use_tls,
+            file_patterns=request.file_patterns
+        )
+        
+        return {
+            "status": "success",
+            "message": f"Collected logs from FTP server {request.host}",
+            "files_collected": len(collected_files),
+            "files": [str(f) for f in collected_files]
+        }
+        
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"FTP collection failed: {str(e)}"
+        )
+        
     def get_collection_report(self) -> Dict:
         """Generate a summary report of collected logs"""
         total_size = sum(f.stat().st_size for f in self.collected_files if f.exists())
