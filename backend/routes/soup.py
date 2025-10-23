@@ -102,10 +102,21 @@ async def apply_soup_update(file: UploadFile = File(...)):
         with open(signature_path, 'rb') as f:
             signature = f.read()
         
-        # Load public key (in production, this should be embedded in the application)
-        # For now, we'll skip signature verification in development
-        # In production: soup_handler.verify_signature(temp_package, signature, public_key)
-        print("⚠️ Signature verification skipped (development mode)")
+        # Load embedded public key
+        public_key_path = Path(__file__).parent / "quorum_public.pem"
+        if not public_key_path.exists():
+            raise HTTPException(
+                status_code=500,
+                detail="Security alert: SOUP public key 'quorum_public.pem' not found. Cannot verify update signature."
+            )
+
+        with open(public_key_path, "rb") as f:
+            public_key = serialization.load_pem_public_key(f.read())
+
+        if not soup_handler.verify_signature(temp_package, signature, public_key):
+            raise HTTPException(status_code=400, detail="Invalid SOUP package signature")
+        
+        print("✅ Signature verified successfully")
         
         # Step 5: Apply updates atomically
         print("🔄 Applying updates...")

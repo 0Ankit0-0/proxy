@@ -419,8 +419,8 @@ class LogCollector:
         else:
             logger.error(f"❌ Unsupported operating system: {self.system}")
             return []
-        
-     def collect_from_ftp(
+
+    def collect_from_ftp(
         self, 
         host: str, 
         username: str = 'anonymous', 
@@ -501,50 +501,6 @@ class LogCollector:
         
         return collected_files
 
-# Add corresponding route in routes/logs.py
-
-from pydantic import BaseModel
-from typing import Optional, List
-
-class FTPCollectionRequest(BaseModel):
-    host: str
-    username: str = 'anonymous'
-    password: str = ''
-    remote_dir: str = '/'
-    use_tls: bool = False
-    file_patterns: Optional[List[str]] = None
-
-@router.post("/collect/ftp")
-async def collect_from_ftp(request: FTPCollectionRequest):
-    """
-    Collect logs from FTP/FTPS server
-    Supports both standard FTP and FTPS (FTP over TLS)
-    """
-    try:
-        collector = LogCollector(temp_dir=TEMP_DIR)
-        
-        collected_files = collector.collect_from_ftp(
-            host=request.host,
-            username=request.username,
-            password=request.password,
-            remote_dir=request.remote_dir,
-            use_tls=request.use_tls,
-            file_patterns=request.file_patterns
-        )
-        
-        return {
-            "status": "success",
-            "message": f"Collected logs from FTP server {request.host}",
-            "files_collected": len(collected_files),
-            "files": [str(f) for f in collected_files]
-        }
-        
-    except Exception as e:
-        raise HTTPException(
-            status_code=500,
-            detail=f"FTP collection failed: {str(e)}"
-        )
-        
     def get_collection_report(self) -> Dict:
         """Generate a summary report of collected logs"""
         total_size = sum(f.stat().st_size for f in self.collected_files if f.exists())
@@ -564,7 +520,7 @@ if __name__ == "__main__":
     collector = LogCollector(output_dir=Path("/tmp/collected_logs"))
     collected = collector.collect_all()
 
-    print("\n📊 Collection Report:")
+    print("\nf4ca Collection Report:")
     report = collector.get_collection_report()
     for key, value in report.items():
         if key != "files":
