@@ -1,0 +1,83 @@
+/* theme.css - Project Quorum Theme Variables */
+
+/* Colors - Dark Theme */
+:root {
+  --color-bg-primary: #0B0E11;
+  --color-bg-secondary: #0F1417;
+  --color-bg-tertiary: #1A1D21;
+  
+  /* Accent Colors */
+  --color-accent-primary: #00FF88; /* Command Green */
+  --color-accent-warning: #FFC300; /* Hazard Yellow */
+  --color-accent-danger: #FF3B3B; /* Threat Red */
+  --color-accent-secondary: #7FD3F5; /* Soft Cyan */
+  
+  /* Text Colors */
+  --color-text-primary: #E6EEF3;
+  --color-text-secondary: #94A3B8; /* Slate Grey */
+  --color-text-muted: rgba(148, 163, 184, 0.6);
+  
+  /* Severity Colors */
+  --color-severity-critical: #FF3B3B;
+  --color-severity-high: #FF8C42;
+  --color-severity-medium: #FFC300;
+  --color-severity-low: #7FD3F5;
+  
+  /* UI Element Colors */
+  --color-border: rgba(148, 163, 184, 0.2);
+  --color-border-hover: rgba(148, 163, 184, 0.4);
+  --color-hover: rgba(0, 255, 136, 0.1);
+  --color-active: rgba(0, 255, 136, 0.2);
+  
+  /* Shadows */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.5);
+  --shadow-glow: 0 0 20px rgba(0, 255, 136, 0.3);
+  
+  /* Border Radius */
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  
+  /* Spacing (8px base unit) */
+  --spacing-xs: 4px;
+  --spacing-sm: 8px;
+  --spacing-md: 16px;
+  --spacing-lg: 24px;
+  --spacing-xl: 32px;
+  --spacing-2xl: 48px;
+  
+  /* Typography */
+  --font-family-base: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-family-mono: 'JetBrains Mono', 'Courier New', monospace;
+  
+  /* Font Sizes */
+  --font-size-xs: 12px;
+  --font-size-sm: 14px;
+  --font-size-base: 16px;
+  --font-size-lg: 18px;
+  --font-size-xl: 20px;
+  --font-size-2xl: 24px;
+  
+  /* Font Weights */
+  --font-weight-normal: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
+  
+  /* Layout */
+  --sidebar-width: 280px;
+  --container-max-width: 1200px;
+  
+  /* Transitions */
+  --transition-fast: 120ms ease-out;
+  --transition-base: 180ms ease-out;
+  --transition-slow: 300ms ease-out;
+  
+  /* Z-index layers */
+  --z-base: 1;
+  --z-dropdown: 100;
+  --z-modal: 1000;
+  --z-tooltip: 2000;
+}

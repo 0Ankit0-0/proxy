@@ -471,18 +471,4 @@ async def detect_usb_drives():
         raise HTTPException(
             status_code=500,
             detail=f"USB detection failed: {str(e)}"
-        )     "drives": [
-                {
-                    "mount_point": str(drive),
-                    "name": drive.name,
-                    "exists": drive.exists()
-                }
-                for drive in usb_drives
-            ]
-        }
-    
-    except Exception as e:
-        raise HTTPException(
-            status_code=500,
-            detail=f"USB detection failed: {str(e)}"
         )

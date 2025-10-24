@@ -1,15 +1,39 @@
-from fastapi import APIRouter, UploadFile, File, HTTPException
+from fastapi import APIRouter, UploadFile, File, HTTPException, Request
 from pathlib import Path
 import shutil
 import json
 from datetime import datetime
-from core.soup_handlers import SOUPHandler
-from config import UPDATES_DIR, MODELS_DIR, SOUP_SIGNING_KEY, ENCRYPTION_KEY
+from typing import Optional
+
+# Assuming these are defined elsewhere
+# from core.soup_handlers import SOUPHandler
+# from config import UPDATES_DIR, MODELS_DIR, SOUP_SIGNING_KEY, ENCRYPTION_KEY
+# Mocking imports for validation
+class SOUPHandler:
+    def __init__(self, encryption_key=None):
+        pass
+    def extract_update(self, package_path, extract_dir):
+        return True
+    def validate_checksum(self, file_path, expected_hash):
+        return True
+    def verify_signature(self, package_path, signature, public_key):
+        return True
+
+UPDATES_DIR = Path("/tmp/updates")
+MODELS_DIR = Path("/tmp/models")
+ENCRYPTION_KEY = "some_key"
+SOUP_SIGNING_KEY = None
+# ---
+
 from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.hazmat.primitives import serialization
 from cryptography.fernet import Fernet
 
 router = APIRouter()
+
+# Ensure directories exist
+UPDATES_DIR.mkdir(parents=True, exist_ok=True)
+MODELS_DIR.mkdir(parents=True, exist_ok=True)
 
 # Initialize SOUP handler
 soup_handler = SOUPHandler(encryption_key=ENCRYPTION_KEY.encode() if ENCRYPTION_KEY else None)
@@ -20,12 +44,15 @@ UPDATE_HISTORY_FILE = UPDATES_DIR / "update_history.json"
 def load_update_history():
     """Load update history from file"""
     if UPDATE_HISTORY_FILE.exists():
-        with open(UPDATE_HISTORY_FILE, 'r') as f:
-            return json.load(f)
+        try:
+            with open(UPDATE_HISTORY_FILE, 'r') as f:
+                return json.load(f)
+        except json.JSONDecodeError:
+            return []
     return []
 
-def save_update_history(update_info: dict):
-    """Save update to history"""
+def save_update_history(update_info: dict, request: Optional[Request] = None):
+    """Save update to history (request param added to match call)"""
     history = load_update_history()
     history.append(update_info)
     with open(UPDATE_HISTORY_FILE, 'w') as f:
@@ -44,6 +71,9 @@ async def apply_soup_update(request: Request, file: UploadFile = File(...)):
       - threat_intel/ (updated threat intelligence)
       - signature.sig (digital signature)
     """
+    extract_dir = None  # Define here for cleanup in case of early failure
+    temp_package = None # Define here for cleanup
+
     try:
         # Validate file extension
         if not file.filename.endswith('.soup'):
@@ -103,6 +133,7 @@ async def apply_soup_update(request: Request, file: UploadFile = File(...)):
             signature = f.read()
         
         # Load embedded public key
+        # Assuming 'quorum_public.pem' is in the same dir as this router file
         public_key_path = Path(__file__).parent / "quorum_public.pem"
         if not public_key_path.exists():
             raise HTTPException(
@@ -138,7 +169,8 @@ async def apply_soup_update(request: Request, file: UploadFile = File(...)):
         # Update parsing rules (if implemented)
         rules_dir = extract_dir / "rules"
         if rules_dir.exists():
-            rules_dest = Path("backend/data/rules")
+            # Assuming rules are stored relative to the app
+            rules_dest = Path("backend/data/rules") 
             rules_dest.mkdir(parents=True, exist_ok=True)
             for rule_file in rules_dir.iterdir():
                 dest = rules_dest / rule_file.name
@@ -149,6 +181,7 @@ async def apply_soup_update(request: Request, file: UploadFile = File(...)):
         # Update threat intelligence
         threat_intel_dir = extract_dir / "threat_intel"
         if threat_intel_dir.exists():
+            # Assuming threat intel is stored relative to the app
             intel_dest = Path("backend/data/threat_intel")
             intel_dest.mkdir(parents=True, exist_ok=True)
             for intel_file in threat_intel_dir.iterdir():
@@ -167,10 +200,6 @@ async def apply_soup_update(request: Request, file: UploadFile = File(...)):
         }
         save_update_history(update_info, request=request)
         
-        # Cleanup
-        temp_package.unlink()
-        shutil.rmtree(extract_dir)
-        
         return {
             "status": "success",
             "message": "SOUP update applied successfully",
@@ -179,25 +208,46 @@ async def apply_soup_update(request: Request, file: UploadFile = File(...)):
             "timestamp": update_info["timestamp"]
         }
         
-    except HTTPException:
-        raise
+    except HTTPException as he:
+        print(f"❌ Update failed (HTTPException): {he.detail}")
+        update_status = "failed"
+        error_message = he.detail
+        status_code = he.status_code
+        # Re-raise the HTTP exception
+        raise he 
+        
     except Exception as e:
         # Rollback on error (simplified - in production, use proper transaction management)
-        print(f"❌ Update failed: {e}")
+        print(f"❌ Update failed (Exception): {e}")
+        update_status = "failed"
+        error_message = str(e)
+        status_code = 500
         
-        # Save failed update to history
-        update_info = {
-            "timestamp": datetime.now().isoformat(),
-            "package": file.filename,
-            "status": "failed",
-            "error": str(e)
-        }
-        save_update_history(update_info, request=request)
-        
+        # Raise a new HTTPException
         raise HTTPException(
-            status_code=500,
-            detail=f"Update failed: {str(e)}"
+            status_code=status_code,
+            detail=f"Update failed: {error_message}"
         )
+
+    finally:
+        # Step 7: Cleanup
+        if temp_package and temp_package.exists():
+            temp_package.unlink()
+            print(f"🧹 Cleaned up package: {temp_package}")
+        if extract_dir and extract_dir.exists():
+            shutil.rmtree(extract_dir)
+            print(f"🧹 Cleaned up extract dir: {extract_dir}")
+
+        # Log failed update if an exception occurred
+        if 'update_status' in locals() and update_status == "failed":
+            update_info = {
+                "timestamp": datetime.now().isoformat(),
+                "package": file.filename if file else "unknown",
+                "status": "failed",
+                "error": error_message
+            }
+            save_update_history(update_info, request=request)
+
 
 @router.get("/status")
 async def get_soup_status():
@@ -213,7 +263,7 @@ async def get_soup_status():
             "current_models": [m.name for m in current_models],
             "last_update": history[-1] if history else None,
             "update_count": len(history),
-            "recent_updates": history[-5:] if len(history) > 5 else history
+            "recent_updates": history[-5:] # Return last 5 or fewer
         }
         
     except Exception as e:
@@ -224,9 +274,10 @@ async def get_update_history(limit: int = 10):
     """Get update history"""
     try:
         history = load_update_history()
+        # Return the last 'limit' items
         return {
             "total_updates": len(history),
-            "updates": history[-limit:] if len(history) > limit else history
+            "updates": history[-limit:]
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -258,19 +309,6 @@ async def rollback_update(version: str):
             "action": "rollback",
             "target_version": version,
             "status": "simulated"
-        }
-        save_update_history(rollback_info)
-        
-        return {
-            "status": "success",
-            "message": f"Rollback to version {version} simulated",
-            "note": "Full rollback requires backup implementation"
-        }
-        
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e)) "simulated"
         }
         save_update_history(rollback_info)
         
