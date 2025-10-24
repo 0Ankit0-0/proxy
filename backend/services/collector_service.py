@@ -501,6 +501,113 @@ class LogCollector:
         
         return collected_files
 
+    def detect_usb_drives(self) -> List[Path]:
+        """
+        Detect mounted USB drives (cross-platform)
+        Returns list of mount points containing log files
+        """
+        usb_drives = []
+        
+        if platform.system() == "Windows":
+            # Windows: Check removable drives
+            try:
+                import win32api
+                import win32file
+            except ImportError:
+                logger.warning("pywin32 not installed, cannot detect USB drives on Windows. Run: pip install pywin32")
+                return usb_drives
+
+            drives = win32api.GetLogicalDriveStrings().split('\000')[:-1]
+            for drive in drives:
+                try:
+                    drive_type = win32file.GetDriveType(drive)
+                    # DRIVE_REMOVABLE = 2
+                    if drive_type == 2:
+                        drive_path = Path(drive)
+                        if drive_path.exists():
+                            usb_drives.append(drive_path)
+                except Exception as e:
+                    logger.warning(f"Error checking drive {drive}: {e}")
+        
+        elif platform.system() == "Linux":
+            # Linux: Check /media and /mnt for mounted devices
+            media_paths = [Path("/media"), Path("/mnt")]
+            
+            for media_path in media_paths:
+                if media_path.exists():
+                    for item in media_path.iterdir():
+                        if item.is_dir():
+                            # Check if it's a mount point
+                            if os.path.ismount(str(item)):
+                                usb_drives.append(item)
+        
+        elif platform.system() == "Darwin":  # macOS
+            # macOS: Check /Volumes for external drives
+            volumes_path = Path("/Volumes")
+            if volumes_path.exists():
+                for volume in volumes_path.iterdir():
+                    # Exclude system volumes
+                    if volume.name not in ["Macintosh HD", "Preboot", "Recovery", "VM"]:
+                        usb_drives.append(volume)
+        
+        logger.info(f"Detected {len(usb_drives)} USB/removable drives")
+        return usb_drives
+    
+    def collect_from_usb(self, auto_detect: bool = True, mount_point: Path = None) -> List[Path]:
+        """
+        Collect logs from USB drive
+        
+        Args:
+            auto_detect: Automatically detect USB drives
+            mount_point: Specific mount point to scan (if auto_detect=False)
+        
+        Returns:
+            List of collected log file paths
+        """
+        logger.info("🔌 Collecting logs from USB drive...")
+        collected_files = []
+        
+        # Get USB drives
+        if auto_detect:
+            usb_drives = self.detect_usb_drives()
+            if not usb_drives:
+                logger.warning("⚠️ No USB drives detected")
+                return collected_files
+        else:
+            if not mount_point or not mount_point.exists():
+                logger.error(f"❌ Invalid mount point: {mount_point}")
+                return collected_files
+            usb_drives = [mount_point]
+        
+        # Scan each USB drive for log files
+        log_extensions = {'.log', '.txt', '.evtx', '.json', '.csv', '.evt'}
+        
+        for usb_drive in usb_drives:
+            logger.info(f"📂 Scanning USB drive: {usb_drive}")
+            
+            try:
+                # Recursively find log files
+                for file_path in usb_drive.rglob("*"):
+                    if file_path.is_file() and file_path.suffix.lower() in log_extensions:
+                        # Copy to output directory
+                        dest_file = self.output_dir / f"usb_{usb_drive.name}_{file_path.name}"
+                        
+                        try:
+                            shutil.copy2(file_path, dest_file)
+                            collected_files.append(dest_file)
+                            self.collected_files.append(dest_file)
+                            logger.info(f"✅ Collected from USB: {file_path.name}")
+                        except Exception as e:
+                            logger.warning(f"⚠️ Failed to copy {file_path}: {e}")
+            
+            except PermissionError:
+                logger.warning(f"⚠️ Permission denied accessing {usb_drive}")
+            except Exception as e:
+                logger.error(f"❌ Error scanning {usb_drive}: {e}")
+        
+        logger.info(f"✅ Collected {len(collected_files)} files from USB")
+        return collected_files
+
     def get_collection_report(self) -> Dict:
         """Generate a summary report of collected logs"""
         total_size = sum(f.stat().st_size for f in self.collected_files if f.exists())

@@ -29,6 +29,35 @@ SOUP_SIGNING_KEY = os.getenv("SOUP_SIGNING_KEY")
 APP_NAME = "Project Quorum"
 APP_VERSION = "1.0.0"
 DEBUG = True
-ALLOWED_HOSTS = ["*"]
+# Network Configuration
+DEPLOYMENT_MODE = os.getenv("DEPLOYMENT_MODE", "isolated")  # isolated, lan, or debug
+
+if DEPLOYMENT_MODE == "isolated":
+    # True air-gap: localhost only
+    API_HOST = "127.0.0.1"
+    ALLOWED_HOSTS = ["http://localhost:3000", "http://127.0.0.1:3000", "http://localhost:5173"]
+    print("🔒 Running in ISOLATED mode - localhost only")
+
+elif DEPLOYMENT_MODE == "lan":
+    # LAN/private network: bind to all interfaces but restrict CORS
+    API_HOST = "0.0.0.0"
+    ALLOWED_HOSTS = [
+        "http://192.168.*.*",  # Local network
+        "http://10.*.*.*",      # Private network
+        "http://172.16.*.*",    # Private network
+    ]
+    print("🌐 Running in LAN mode - private network only")
+
+elif DEPLOYMENT_MODE == "debug":
+    # Development only
+    API_HOST = "0.0.0.0"
+    ALLOWED_HOSTS = ["*"]
+    print("⚠️ Running in DEBUG mode - allow all origins")
+
+else:
+    # Default to most secure
+    API_HOST = "127.0.0.1"
+    ALLOWED_HOSTS = ["http://localhost:3000"]
+    print("🔒 Running in ISOLATED mode (default)")
 
  

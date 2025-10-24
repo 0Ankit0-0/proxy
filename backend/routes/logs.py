@@ -1,4 +1,4 @@
-from fastapi import APIRouter, UploadFile, File, HTTPException, BackgroundTasks, status
+from fastapi import APIRouter, UploadFile, File, HTTPException, BackgroundTasks, status, Query
 from fastapi.responses import JSONResponse
 from pathlib import Path
 import os
@@ -19,9 +19,9 @@ TEMP_DIR.mkdir(parents=True, exist_ok=True)
 LOGS_DIR.mkdir(parents=True, exist_ok=True)
 
 
-# ============================================================
+# ============================================================ 
 # 📂 Upload Endpoint
-# ============================================================
+# ============================================================ 
 
 class UploadResponse(BaseModel):
     status: str
@@ -61,9 +61,9 @@ async def upload_logs(file: UploadFile = File(...)):
         )
 
 
-# ============================================================
+# ============================================================ 
 # 🧠 Local and Directory Collection
-# ============================================================
+# ============================================================ 
 
 @router.post("/collect")
 async def collect_local_logs(background_tasks: BackgroundTasks):
@@ -127,9 +127,9 @@ async def collect_from_directory(directory_path: str):
         raise HTTPException(status_code=500, detail=f"Directory collection failed: {str(e)}")
 
 
-# ============================================================
+# ============================================================ 
 # 🌐 Remote Collection (SSH / WinRM / Network Share)
-# ============================================================
+# ============================================================ 
 
 class SSHCollectionRequest(BaseModel):
     host: str = Field(..., description="Remote host IP/hostname")
@@ -146,7 +146,7 @@ class WinRMCollectionRequest(BaseModel):
 
 
 class NetworkShareRequest(BaseModel):
-    network_path: str = Field(..., description="UNC path like \\\\server\\share")
+    network_path: str = Field(..., description="UNC path like \\server\share")
     username: Optional[str] = None
     password: Optional[str] = None
 
@@ -244,9 +244,9 @@ async def collect_from_network_share(request: NetworkShareRequest):
         raise HTTPException(status_code=500, detail=f"Network share collection failed: {str(e)}")
 
 
-# ============================================================
+# ============================================================ 
 # 🧩 Parsing / Storage / Query / Cleanup
-# ============================================================
+# ============================================================ 
 
 @router.post("/parse")
 async def parse_uploaded_logs():
@@ -408,3 +408,79 @@ async def get_collection_status():
 
     except Exception as e:
         return {"status": "error", "message": str(e)}
+
+
+# ============================================================ 
+# 🔌 USB Collection
+# ============================================================ 
+
+@router.post("/collect/usb")
+async def collect_from_usb(
+    auto_detect: bool = Query(True, description="Auto-detect USB drives"),
+    mount_point: Optional[str] = Query(None, description="Specific USB mount point")
+):
+    """
+    Collect logs from USB/removable drives
+    
+    This endpoint supports true offline log collection:
+    - Auto-detects mounted USB drives
+    - Scans for .log, .evtx, .json files
+    - Copies to temp storage for analysis
+    
+    Use cases:
+    - Field analysts with USB-collected logs
+    - Offline transfer from isolated systems
+    - Manual log aggregation
+    """
+    try:
+        collector = LogCollector(temp_dir=TEMP_DIR)
+        
+        mount = Path(mount_point) if mount_point else None
+        collected_files = collector.collect_from_usb(
+            auto_detect=auto_detect,
+            mount_point=mount
+        )
+        
+        return {
+            "status": "success",
+            "message": f"Collected logs from USB drive(s)",
+            "files_collected": len(collected_files),
+            "files": [str(f) for f in collected_files[:20]]  # First 20
+        }
+    
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"USB collection failed: {str(e)}"
+        )
+
+
+@router.get("/collect/usb/detect")
+async def detect_usb_drives():
+    """
+    Detect available USB/removable drives
+    
+    Returns list of mount points that can be used for log collection
+    """
+    try:
+        collector = LogCollector()
+        usb_drives = collector.detect_usb_drives()
+        
+        return {
+            "status": "success",
+            "drives_detected": len(usb_drives),
+            "drives": [
+                {
+                    "mount_point": str(drive),
+                    "name": drive.name,
+                    "exists": drive.exists()
+                }
+                for drive in usb_drives
+            ]
+        }
+    
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"USB detection failed: {str(e)}"
+        )

@@ -1,6 +1,7 @@
 from fastapi import APIRouter
 from core.database import get_db_collection
 from services.ai_engine import AIEngine
+from core.isolation_validator import IsolationValidator
 
 router = APIRouter()
 
@@ -13,3 +14,30 @@ def health_check():
     }
 
     return status
+
+@router.get("/isolation")
+def check_isolation():
+    """
+    Validate system isolation status
+    
+    Checks:
+    - Internet connectivity
+    - Network interfaces
+    - External API accessibility
+    
+    For true air-gap deployment, should return:
+    - isolation_level: "fully_isolated"
+    - compliant: true
+    - warnings: []
+    """
+    validator = IsolationValidator()
+    report = validator.validate_isolation()
+    
+    return {
+        "status": "ok" if report["compliant"] else "warning",
+        "report": report,
+        "recommendation": (
+            "System is properly isolated" if report["compliant"]
+            else "System is not fully isolated - review warnings"
+        )
+    }

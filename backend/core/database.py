@@ -1,9 +1,14 @@
 import duckdb
+import os
 from config import DB_PATH
 
 def get_db_collection():
-    """Initialize DuckDB with complete schema"""
-    conn = duckdb.connect(str(DB_PATH))
+    """
+    Initialize DuckDB with complete schema.
+    If the PYTEST_RUNNING environment variable is set, it uses an in-memory database.
+    """
+    db_path = ":memory:" if os.getenv("PYTEST_RUNNING") else str(DB_PATH)
+    conn = duckdb.connect(db_path)
 
     conn.execute("""
         CREATE TABLE IF NOT EXISTS logs (
