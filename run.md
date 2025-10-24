@@ -94,6 +94,7 @@ This guide provides instructions on how to set up and run the Project Quorum bac
 3.  **The frontend application can now make API calls** to the backend at `http://localhost:8000`. For example, to upload a log file, the frontend would make a `POST` request to `http://localhost:8000/logs/upload`.
 4.  **CORS is enabled** for the default frontend development server (`http://localhost:3000`), so there should be no cross-origin issues. If the frontend is running on a different port, you may need to update the `ALLOWED_HOSTS` in the `.env` file.
 
+**File Structure(JO nhi haui vo file bana lena or AI train nhi hai to kal karu )** 
 SIH/
 ├── .gitignore
 ├── REPORT.md
