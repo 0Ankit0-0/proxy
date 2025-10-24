@@ -1,10 +1,23 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 import logging
+import time
 
-from config import APP_NAME, APP_VERSION, DEBUG, ALLOWED_HOSTS, API_HOST, DEPLOYMENT_MODE
+from config import APP_NAME, APP_VERSION, DEBUG, ALLOWED_HOSTS, API_HOST, DEPLOYMENT_MODE, LOGS_DIR
 from core.isolation_validator import IsolationValidator
 from routes import logs, analysis, soup, health
+
+# Configure logging to both file and console
+log_file = LOGS_DIR / 'server.log'
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    datefmt='%Y-%m-%d %H:%M:%S',
+    handlers=[
+        logging.FileHandler(log_file),
+        logging.StreamHandler()
+    ]
+)
 
 logger = logging.getLogger(__name__)
 
@@ -22,6 +35,27 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Request logging middleware
+@app.middleware("http")
+async def log_requests(request: Request, call_next):
+    start_time = time.time()
+
+    # Log incoming request
+    logger.info(f"REQUEST: {request.method} {request.url} - Client: {request.client.host if request.client else 'unknown'}")
+
+    try:
+        response = await call_next(request)
+        process_time = time.time() - start_time
+
+        # Log response
+        logger.info(f"RESPONSE: {request.method} {request.url} - Status: {response.status_code} - Time: {process_time:.3f}s")
+
+        return response
+    except Exception as e:
+        process_time = time.time() - start_time
+        logger.error(f"ERROR: {request.method} {request.url} - Exception: {str(e)} - Time: {process_time:.3f}s")
+        raise
 
 # Include Routers
 app.include_router(health.router, prefix="/health", tags=["Health"])
