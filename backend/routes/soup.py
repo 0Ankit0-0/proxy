@@ -32,7 +32,7 @@ def save_update_history(update_info: dict):
         json.dump(history, f, indent=2)
 
 @router.post("/update")
-async def apply_soup_update(file: UploadFile = File(...)):
+async def apply_soup_update(request: Request, file: UploadFile = File(...)):
     """
     Apply SOUP (Secure Offline Update Protocol) package
     
@@ -165,7 +165,7 @@ async def apply_soup_update(file: UploadFile = File(...)):
             "status": "success",
             "summary": update_summary
         }
-        save_update_history(update_info)
+        save_update_history(update_info, request=request)
         
         # Cleanup
         temp_package.unlink()
@@ -192,7 +192,7 @@ async def apply_soup_update(file: UploadFile = File(...)):
             "status": "failed",
             "error": str(e)
         }
-        save_update_history(update_info)
+        save_update_history(update_info, request=request)
         
         raise HTTPException(
             status_code=500,
@@ -258,6 +258,19 @@ async def rollback_update(version: str):
             "action": "rollback",
             "target_version": version,
             "status": "simulated"
+        }
+        save_update_history(rollback_info)
+        
+        return {
+            "status": "success",
+            "message": f"Rollback to version {version} simulated",
+            "note": "Full rollback requires backup implementation"
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e)) "simulated"
         }
         save_update_history(rollback_info)
         

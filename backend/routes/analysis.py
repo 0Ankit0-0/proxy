@@ -1,64 +1,60 @@
 from fastapi import APIRouter, HTTPException
-from services.ai_engine import AIEngine
 from services.storage_service import StorageService
-from config import MODELS_DIR
+from core.detection_engine import DetectionEngine
+import json
 
 router = APIRouter()
-ai_engine = AIEngine()
+detection_engine = DetectionEngine()
 
-@router.post("/run")
-async def run_analysis():
-    """Run AI anomaly detection on all stored logs"""
+@router.post("/analyze/comprehensive")
+async def comprehensive_analysis():
+    """
+    Run comprehensive analysis using:
+    - AI anomaly detection
+    - Rule-based detection
+    - Threat intelligence matching
+    - TTP detection
+    """
     try:
-        # Fetch all logs from DuckDB
-        result = StorageService.query_logs("SELECT message, id FROM logs WHERE anomaly_score = 0")
+        # Fetch unanalyzed logs
+        logs = StorageService.query_logs(
+            "SELECT id, timestamp, host, process, message FROM logs WHERE detections IS NULL LIMIT 5000"
+        )
+        
+        if not logs:
+            return {"status": "no_data", "message": "No new logs to analyze"}
+        
+        log_entries = [{'id': log[0], 'timestamp': log[1], 'host': log[2], 'process': log[3], 'message': log[4]} for log in logs]
+        
+        results = detection_engine.batch_analyze(log_entries)
+        
+        threats_found = 0
+        with StorageService.get_connection() as conn:
+            for result in results:
+                log_id = result['log_entry']['id']
+                if result['is_threat']:
+                    threats_found += 1
+                    severity = result['severity']
+                    score = result['detections'][0]['score'] if result['detections'] else 0.0
+                    detections_json = json.dumps(result['detections'])
+                    
+                    conn.execute("UPDATE logs SET is_anomaly = TRUE, anomaly_score = ?, severity = ?, detections = ? WHERE id = ?", (score, severity, detections_json, log_id))
+                else:
+                    conn.execute("UPDATE logs SET detections = '[]' WHERE id = ?", (log_id,))
 
-        if not result:
-            return {"status": "no_data", "message": "No logs to analyze"}
-
-        messages = [row[0] for row in result]
-        ids = [row[1] for row in result]
-
-        # Run AI analysis
-        analysis_results = ai_engine.analyze(messages)
-
-        # Update database with scores
-        conn = StorageService.get_connection()
-        for idx, score in enumerate(analysis_results['scores']):
-            conn.execute(
-                "UPDATE logs SET anomaly_score = ?, is_anomaly = ? WHERE id = ?",
-                (score, score > 0.5, ids[idx])
-            )
-
+        threats = [r for r in results if r['is_threat']]
+        
         return {
             "status": "success",
-            "analyzed": analysis_results['total_analyzed'],
-            "anomalies_found": analysis_results['anomaly_count'],
-            "results": analysis_results['anomalies']
+            "analyzed": len(results),
+            "threats_found": threats_found,
+            "severity_breakdown": {
+                "critical": len([t for t in threats if t['severity'] == 'critical']),
+                "high": len([t for t in threats if t['severity'] == 'high']),
+                "medium": len([t for t in threats if t['severity'] == 'medium']),
+            },
+            "top_threats": threats[:20]
         }
-
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-@router.get("/results")
-async def get_analysis_results():
-    """Retrieve detected anomalies"""
-    try:
-        result = StorageService.query_logs(
-            "SELECT timestamp, host, message, anomaly_score FROM logs WHERE is_anomaly = TRUE ORDER BY anomaly_score DESC LIMIT 100"
-        )
-
-        anomalies = [
-            {
-                "timestamp": row[0],
-                "host": row[1],
-                "message": row[2],
-                "score": row[3]
-            }
-            for row in result
-        ]
-
-        return {"status": "success", "anomalies": anomalies, "count": len(anomalies)}
-
+    
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

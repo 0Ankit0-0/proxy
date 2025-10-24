@@ -21,7 +21,11 @@ def get_db_collection():
             raw TEXT,
             source_file VARCHAR DEFAULT 'unknown',
             anomaly_score DOUBLE DEFAULT 0.0,
-            is_anomaly BOOLEAN DEFAULT FALSE
+            is_anomaly BOOLEAN DEFAULT FALSE,
+            severity VARCHAR DEFAULT 'low',
+            detections TEXT,
+            ttp_tags TEXT,
+            content_hash VARCHAR
         );
     """)
 
@@ -29,6 +33,7 @@ def get_db_collection():
     conn.execute("CREATE INDEX IF NOT EXISTS idx_timestamp ON logs(timestamp);")
     conn.execute("CREATE INDEX IF NOT EXISTS idx_anomaly ON logs(is_anomaly);")
     conn.execute("CREATE INDEX IF NOT EXISTS idx_host ON logs(host);")
+    conn.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_content_hash ON logs(content_hash);")
 
     return conn
 

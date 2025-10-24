@@ -38,7 +38,7 @@ class StorageService:
     @staticmethod
     def insert_polars_df(df: pl.DataFrame, table_name: str = "logs", batch_size: int = 1000):
         """
-        Optimized batch insertion with proper error handling
+        Optimized batch insertion with deduplication and proper error handling.
         
         Args:
             df: Polars DataFrame with log data
@@ -47,47 +47,67 @@ class StorageService:
         """
         with StorageService.get_connection() as conn:
             try:
-                # Ensure required columns exist
+                # 1. Add content hash for deduplication
+                df = df.with_columns(
+                    pl.col('raw').apply(lambda x: hashlib.sha256(x.encode('utf-8', 'ignore')).hexdigest() if x else None).alias('content_hash')
+                )
+
+                # 2. Get existing hashes
+                existing_hashes = {row[0] for row in conn.execute("SELECT content_hash FROM logs WHERE content_hash IS NOT NULL").fetchall()}
+                
+                # 3. Filter out duplicates
+                original_row_count = len(df)
+                df = df.filter(~pl.col('content_hash').is_in(existing_hashes))
+                new_row_count = len(df)
+                logger.info(f"Deduplication: {original_row_count - new_row_count} duplicate logs removed.")
+
+                if new_row_count == 0:
+                    logger.info("✅ No new logs to insert.")
+                    return 0
+
+                # 4. Ensure required columns exist
                 required_columns = {
                     'timestamp': pl.Datetime(time_unit='ms'),
                     'host': pl.Utf8,
                     'process': pl.Utf8,
-                    'pid': pl.Int64,  # Keep as integer
+                    'pid': pl.Int64,
                     'message': pl.Utf8,
                     'raw': pl.Utf8,
                     'source_file': pl.Utf8,
-                    'anomaly_score': pl.Float64
+                    'anomaly_score': pl.Float64,
+                    'severity': pl.Utf8,
+                    'detections': pl.Utf8,
+                    'ttp_tags': pl.Utf8,
+                    'content_hash': pl.Utf8
                 }
                 
-                # Add missing columns with default values
                 for col_name, col_type in required_columns.items():
                     if col_name not in df.columns:
-                        if col_name == 'source_file':
-                            df = df.with_columns(pl.lit('unknown').alias(col_name))
-                        elif col_name == 'anomaly_score':
-                            df = df.with_columns(pl.lit(0.0).alias(col_name))
-                        elif col_name in ['timestamp', 'host', 'process', 'pid', 'message', 'raw']:
-                            df = df.with_columns(pl.lit(None).cast(col_type).alias(col_name))
-                
-                # Convert to pandas for DuckDB (more efficient than registering)
+                        df = df.with_columns(pl.lit(None, dtype=col_type).alias(col_name))
+
+                # Reorder columns to match table schema
+                df = df.select(list(required_columns.keys()))
+
+                # 5. Batch insert
                 df_pandas = df.to_pandas()
-                
-                # Batch insert for better performance
                 total_rows = len(df_pandas)
                 inserted_rows = 0
                 
                 for i in range(0, total_rows, batch_size):
                     batch = df_pandas.iloc[i:i + batch_size]
+                    try:
+                        conn.unregister("batch_df")
+                    except Exception:
+                        pass
                     conn.register("batch_df", batch)
                     conn.execute(f"INSERT INTO {table_name} SELECT * FROM batch_df")
                     inserted_rows += len(batch)
                     logger.info(f"Inserted {inserted_rows}/{total_rows} rows")
                 
-                # Commit changes
                 conn.execute("CHECKPOINT")
-                logger.info(f"✅ Successfully stored {total_rows} rows in {table_name}")
+                logger.info(f"✅ Successfully stored {inserted_rows} new rows in {table_name}")
                 
-                return total_rows
+                return inserted_rows
 
             except Exception as e:
                 logger.error(f"❌ Insert failed: {e}")

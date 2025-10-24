@@ -1,0 +1,34 @@
+{
+  "T1003": {
+    "name": "OS Credential Dumping",
+    "patterns": ["mimikatz", "procdump64.exe -ma lsass.exe", "lsass.dmp", "sekurlsa::logonpasswords"],
+    "severity": "critical",
+    "tactic": "Credential Access",
+    "technique": "OS Credential Dumping",
+    "description": "Adversaries attempt to dump credentials to obtain account login and credential material, normally in the form of a hash or a clear-text password, from the operating system and software."
+  },
+  "T1059": {
+    "name": "Command and Scripting Interpreter",
+    "patterns": ["powershell.exe -nop -w hidden -encodedcommand", "bash -i >& /dev/tcp/", "cmd.exe /c whoami"],
+    "severity": "high",
+    "tactic": "Execution",
+    "technique": "Command and Scripting Interpreter",
+    "description": "Adversaries abuse command and script interpreters to execute commands, scripts, or binaries."
+  },
+  "T1190": {
+    "name": "Exploit Public-Facing Application",
+    "patterns": ["jndi:ldap", "cgi-bin/test.cgi"],
+    "severity": "critical",
+    "tactic": "Initial Access",
+    "technique": "Exploit Public-Facing Application",
+    "description": "Adversaries may attempt to exploit a weakness in an Internet-facing application (e.g., web server) to gain initial access."
+  },
+  "T1486": {
+      "name": "Data Encrypted for Impact",
+      "patterns": ["vssadmin delete shadows /all /quiet", "File encrypted: ", ".docx.locked"],
+      "severity": "critical",
+      "tactic": "Impact",
+      "technique": "Data Encrypted for Impact",
+      "description": "Adversaries may encrypt data on target systems or on large numbers of systems in a network to interrupt availability to system and network resources."
+  }
+}

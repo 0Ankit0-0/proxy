@@ -1,16 +1,13 @@
 # API Endpoints Documentation
 
 ## Overview
-This document describes all available API endpoints for the Log Analysis System.
+This document describes all available API endpoints for the Project Quorum Log Analysis System.
 
 ## Base URL
-All endpoints are prefixed with `/api/v1`
+The backend runs on `http://localhost:8000` by default. All endpoints are relative to this base URL.
 
 ## Authentication
 Currently, no authentication is implemented. All endpoints are publicly accessible.
-
-## Rate Limiting
-No rate limiting is currently implemented.
 
 ## Error Response Format
 All endpoints return standardized error responses:
@@ -22,15 +19,11 @@ All endpoints return standardized error responses:
 
 ## Endpoints
 
-### Health Check
+### Health Check (`/health`)
+
 - **GET** `/health/`
 - **Status**: ✅ Fully Implemented
-- **Description**: Comprehensive health check for API, database, and AI models
-- **Parameters**: None
-- **Request Example**:
-  ```bash
-  GET /api/v1/health/
-  ```
+- **Description**: Comprehensive health check for API, database, and AI models.
 - **Success Response** (200):
   ```json
   {
@@ -38,32 +31,26 @@ All endpoints return standardized error responses:
     "message": "System is Running"
   }
   ```
-- **Error Response** (500):
+
+- **GET** `/health/isolation`
+- **Status**: ✅ Fully Implemented
+- **Description**: Validates the isolation status of the system.
+- **Success Response** (200):
   ```json
   {
-    "detail": "Health check failed: Database connection error"
+    "isolation_level": "fully_isolated",
+    "compliant": true,
+    "warnings": []
   }
   ```
 
-### Log Management
+### Log Management (`/logs`)
 
 #### Upload Logs
 - **POST** `/logs/upload`
 - **Status**: ✅ Fully Implemented
-- **Description**: Upload a log file for offline analysis
-- **Supported Formats**: .log, .txt, .evtx, .json, .csv, .evt, .gz
-- **Parameters**:
-  - `file` (file): Log file to upload (multipart/form-data)
-- **Validation**:
-  - File size limit: Not specified
-  - File type validation: Based on extension
-- **Request Example**:
-  ```bash
-  POST /api/v1/logs/upload
-  Content-Type: multipart/form-data
-
-  file: example.log
-  ```
+- **Description**: Upload a log file for offline analysis.
+- **Request Body**: `multipart/form-data` with a `file` field.
 - **Success Response** (200):
   ```json
   {
@@ -72,208 +59,117 @@ All endpoints return standardized error responses:
     "filename": "example.log"
   }
   ```
-- **Error Responses**:
-  - 400: Invalid file format
-    ```json
-    {
-      "detail": "Unsupported file format. Supported: .log, .txt, .evtx, .json, .csv, .evt, .gz"
-    }
-    ```
-  - 500: Upload failed
-    ```json
-    {
-      "detail": "Upload failed: Disk full"
-    }
-    ```
 
-#### Collect Local Logs
-- **POST** `/logs/collect/local`
-- **Description**: Collect logs from the local system (cross-platform)
-- **Supported OS**: Windows, Linux, macOS
-- **Response**:
-  ```json
-  {
-    "status": "success",
-    "message": "Collected logs from Windows",
-    "system": "Windows",
-    "files_collected": 5,
-    "files": ["path/to/log1.log", "path/to/log2.log"]
-  }
-  ```
-
-#### Collect from Directory
+#### Collect Logs from Directory
 - **POST** `/logs/collect/directory`
-- **Description**: Collect logs from a specific directory
-- **Parameters**:
-  - `directory_path` (string): Path to the directory
-- **Response**:
+- **Status**: ✅ Fully Implemented
+- **Description**: Collect logs from a specific directory on the server.
+- **Request Body**:
+    ```json
+    {
+        "directory_path": "/path/to/logs"
+    }
+    ```
+- **Success Response** (200):
   ```json
   {
     "status": "success",
     "message": "Collected logs from /path/to/logs",
-    "files_collected": 10,
-    "files": ["file1.log", "file2.log"]
+    "files_collected": 1,
+    "files": ["example.log"]
   }
   ```
 
-#### Parse Uploaded Logs
-- **POST** `/logs/parse`
-- **Description**: Parse all uploaded/collected logs in TEMP_DIR
-- **Response**:
-  ```json
-  {
-    "status": "success",
-    "files_parsed": 3,
-    "details": {
-      "file1.log": {
-        "rows": 100,
-        "parser": "syslog",
-        "columns": ["timestamp", "host", "message"]
-      }
-    }
-  }
-  ```
-
-#### Store Parsed Logs
+#### Parse and Store Logs
 - **POST** `/logs/store`
-- **Description**: Store parsed logs into DuckDB
-- **Response**:
+- **Status**: ✅ Fully Implemented
+- **Description**: Parses all log files from the temporary directory and stores them in the database. This endpoint now handles deduplication.
+- **Success Response** (200):
   ```json
   {
     "status": "success",
-    "files_stored": 3,
-    "total_rows": 500,
-    "files": ["file1.log", "file2.log", "file3.log"]
+    "files_processed": 1,
+    "total_rows_stored": 100,
+    "files": ["example.log"]
   }
   ```
 
 #### Query Logs
-- **GET** `/logs/query`
-- **Description**: Execute SQL query on stored logs
-- **Parameters**:
-  - `query` (string): SQL query string
-- **Security**: Basic SQL injection prevention (blocks DROP, DELETE, etc.)
-- **Example**: `SELECT * FROM logs WHERE is_anomaly = TRUE LIMIT 10`
-- **Response**:
+- **GET** `/logs/query/{query_name}`
+- **Status**: ✅ Fully Implemented
+- **Description**: Execute a pre-defined, safe query on the stored logs.
+- **Path Parameters**:
+  - `query_name` (string): The name of the query to execute. Allowed values: `get_anomalies`, `get_recent`, `count_by_host`.
+- **Query Parameters**:
+  - `limit` (int, optional): The maximum number of rows to return. Defaults to 100.
+- **Example**: `GET /logs/query/get_anomalies?limit=10`
+- **Success Response** (200):
   ```json
   {
     "status": "success",
     "rows": 5,
-    "data": [["2023-01-01", "host1", "message1"], ...]
+    "data": [
+        // ... array of results
+    ]
   }
   ```
 
-#### Clear Temp Logs
-- **DELETE** `/logs/clear`
-- **Description**: Clear all temporary log files
-- **Response**:
+### Analysis (`/analysis`)
+
+#### Comprehensive Analysis
+- **POST** `/analysis/comprehensive`
+- **Status**: ✅ Fully Implemented
+- **Description**: Runs the full multi-layered detection engine on all unanalyzed logs. This includes anomaly, TTP, IoC, and rule-based detection. The results are stored in the database.
+- **Success Response** (200):
   ```json
   {
     "status": "success",
-    "message": "Cleared 5 temporary files"
-  }
-  ```
-
-#### Get Collection Status
-- **GET** `/logs/status`
-- **Description**: Get current status of log collection and storage
-- **Response**:
-  ```json
-  {
-    "status": "operational",
-    "system": "Windows",
-    "temp_storage": {
-      "files": 3,
-      "size_mb": 15.5
+    "analyzed": 1000,
+    "threats_found": 15,
+    "severity_breakdown": {
+        "critical": 1,
+        "high": 4,
+        "medium": 10
     },
-    "database": {
-      "total_logs": 1000,
-      "unique_hosts": 5,
-      "anomalies": 25
-    }
+    "top_threats": [
+        // ... array of threat objects
+    ]
   }
   ```
 
-### Analysis
-
-#### Run Analysis
-- **POST** `/analysis/run`
-- **Description**: Run AI anomaly detection on all stored logs
-- **Response**:
-  ```json
-  {
-    "status": "success",
-    "analyzed": 100,
-    "anomalies_found": 5,
-    "results": ["anomaly1", "anomaly2"]
-  }
-  ```
-
-#### Get Analysis Results
-- **GET** `/analysis/results`
-- **Description**: Retrieve detected anomalies
-- **Response**:
-  ```json
-  {
-    "status": "success",
-    "anomalies": [
-      {
-        "timestamp": "2023-01-01T10:00:00",
-        "host": "server1",
-        "message": "Error message",
-        "score": 0.85
-      }
-    ],
-    "count": 10
-  }
-  ```
-
-### SOUP (Secure Offline Update Protocol)
+### SOUP (Secure Offline Update Protocol) (`/soup`)
 
 #### Apply SOUP Update
 - **POST** `/soup/update`
-- **Description**: Apply SOUP updates using an uploaded file
-- **Request**: Multipart form data with file
-- **Status**: Not fully implemented
-- **Response**:
+- **Status**: ✅ Fully Implemented
+- **Description**: Apply a SOUP update package. The endpoint handles extraction, verification (checksums and digital signature), and atomic application of updates. Includes audit logging.
+- **Request Body**: `multipart/form-data` with a `file` field containing the `.soup` package.
+- **Success Response** (200):
   ```json
   {
-    "filename": "update.soup",
-    "content_type": "application/octet-stream",
-    "status": "SOUP file received successfully"
+    "status": "success",
+    "message": "SOUP update applied successfully",
+    "version": "2.1.0",
+    "applied_updates": {
+        "models": ["iforest_model_v2.pkl"],
+        "rules": [],
+        "threat_intel": []
+    },
+    "timestamp": "2025-10-24T12:00:00Z"
   }
   ```
 
 #### Get SOUP Status
 - **GET** `/soup/status`
-- **Description**: Get the current status of SOUP updates
-- **Status**: Not implemented
-- **Response**:
+- **Status**: ✅ Fully Implemented
+- **Description**: Get the current status of SOUP updates and history.
+- **Success Response** (200):
   ```json
   {
-    "status": "SOUP status functionality not implemented yet"
+    "status": "operational",
+    "current_models": ["iforest_model.pkl"],
+    "last_update": { ... },
+    "update_count": 1,
+    "recent_updates": [ ... ]
   }
   ```
-
-## Error Responses
-All endpoints return standardized error responses:
-```json
-{
-  "detail": "Error message"
-}
-```
-
-## Authentication
-Currently, no authentication is implemented.
-
-## Rate Limiting
-No rate limiting is currently implemented.
-
-## Data Models
-
-### UploadResponse
-```python
-class UploadResponse(BaseModel):
-    status: str
-    message: str
-    filename: str

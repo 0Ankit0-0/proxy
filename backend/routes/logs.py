@@ -252,44 +252,21 @@ async def collect_from_network_share(request: NetworkShareRequest):
 async def parse_uploaded_logs():
     """
     Parse all uploaded/collected logs in TEMP_DIR
-    Converts raw logs to structured format
+    Converts raw logs to structured format using the main parsing logic.
     """
     try:
-        parsed_data = {}
+        filepaths = [p for p in TEMP_DIR.iterdir() if p.is_file()]
+        
+        if not filepaths:
+            return {"status": "success", "message": "No files to parse."}
 
-        for file_path in TEMP_DIR.iterdir():
-            if file_path.is_dir():
-                continue
-
-            try:
-                with open(file_path, 'r', errors="ignore") as f:
-                    content = f.read()
-                lines = content.splitlines()
-
-                try:
-                    df = LogParser.parse_syslog_lines(lines)
-                    parser_type = "syslog"
-                except Exception:
-                    try:
-                        df = LogParser.parse_json_logs(lines)
-                        parser_type = "json"
-                    except Exception:
-                        df = LogParser.parse_generic_text(lines)
-                        parser_type = "generic"
-
-                parsed_data[file_path.name] = {
-                    "rows": df.shape[0],
-                    "parser": parser_type,
-                    "columns": df.columns
-                }
-
-            except Exception as e:
-                parsed_data[file_path.name] = {"error": str(e)}
+        df = LogParser.parse_from_filepaths(filepaths)
 
         return {
             "status": "Logs parsed successfully",
-            "files_parsed": len(parsed_data),
-            "details": parsed_data
+            "files_parsed": len(filepaths),
+            "total_rows_parsed": df.shape[0],
+            "files": [p.name for p in filepaths]
         }
 
     except Exception as e:
@@ -337,19 +314,30 @@ async def store_parsed_logs():
         raise HTTPException(status_code=500, detail=f"Storage failed: {str(e)}")
 
 
-@router.get("/query")
-async def query_logs(query: str):
-    """
-    Execute SQL query on stored logs
-    Example: SELECT * FROM logs WHERE is_anomaly = TRUE LIMIT 10
-    """
-    try:
-        dangerous_keywords = ['DROP', 'DELETE', 'TRUNCATE', 'ALTER', 'CREATE']
-        if any(keyword in query.upper() for keyword in dangerous_keywords):
-            raise HTTPException(status_code=400, detail="Unsafe query detected")
+ALLOWED_QUERIES = {
+    "get_anomalies": "SELECT * FROM logs WHERE is_anomaly = TRUE LIMIT ?",
+    "get_recent": "SELECT * FROM logs ORDER BY timestamp DESC LIMIT ?",
+    "count_by_host": "SELECT host, COUNT(*) FROM logs GROUP BY host"
+}
 
-        result = StorageService.query_logs(query)
-        return {"status": "success", "rows": len(result), "data": result[:100]}
+@router.get("/query/{query_name}")
+async def safe_query(query_name: str, limit: int = 100):
+    """
+    Execute pre-defined and safe SQL queries on stored logs.
+    """
+    if query_name not in ALLOWED_QUERIES:
+        raise HTTPException(status_code=404, detail="Query not found")
+
+    query = ALLOWED_QUERIES[query_name]
+    
+    try:
+        # Pass parameters only if the query expects them
+        if '?' in query:
+            result = StorageService.query_logs(query, (limit,))
+        else:
+            result = StorageService.query_logs(query)
+            
+        return {"status": "success", "rows": len(result), "data": result}
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Query failed: {str(e)}")
@@ -470,6 +458,20 @@ async def detect_usb_drives():
             "status": "success",
             "drives_detected": len(usb_drives),
             "drives": [
+                {
+                    "mount_point": str(drive),
+                    "name": drive.name,
+                    "exists": drive.exists()
+                }
+                for drive in usb_drives
+            ]
+        }
+    
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"USB detection failed: {str(e)}"
+        )     "drives": [
                 {
                     "mount_point": str(drive),
                     "name": drive.name,

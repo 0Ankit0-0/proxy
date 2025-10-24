@@ -1,28 +1,37 @@
-#!/usr/bin/env python3
-import secrets
-from cryptography.fernet import Fernet
-from pathlib import Path
+from cryptography.hazmat.primitives.asymmetric import rsa
+from cryptography.hazmat.primitives import serialization
+import os
 
-def generate_keys():
-    fernet_key = Fernet.generate_key().decode()  # base64 urlsafe, 32 bytes underlying
-    soup_key = secrets.token_urlsafe(32)          # >=32 chars, urlsafe
-    jwt_secret = secrets.token_hex(32)            # 64 hex chars, 32 bytes
+# Get the directory of the current script
+script_dir = os.path.dirname(os.path.abspath(__file__))
+routes_dir = os.path.abspath(os.path.join(script_dir, '..', 'routes'))
 
-    return {
-        "ENCRYPTION_KEY": fernet_key,
-        "SOUP_SIGNING_KEY": soup_key,
-        "JWT_SECRET_KEY": jwt_secret
-    }
+# Generate private key
+private_key = rsa.generate_private_key(
+    public_exponent=65537,
+    key_size=2048,
+)
 
-def write_env(out_path: str = "keys.env"):
-    keys = generate_keys()
-    p = Path(out_path)
-    with p.open("w") as f:
-        for k, v in keys.items():
-            f.write(f"{k}={v}\n")
-    print(f"Wrote keys to {p.resolve()}")
-    for k, v in keys.items():
-        print(f"{k}={v}")
+# Serialize private key
+private_pem = private_key.private_bytes(
+    encoding=serialization.Encoding.PEM,
+    format=serialization.PrivateFormat.TraditionalOpenSSL, # PKCS1 for compatibility with openssl
+    encryption_algorithm=serialization.NoEncryption()
+)
 
-if __name__ == "__main__":
-    write_env()
+with open(os.path.join(routes_dir, 'quorum_private.pem'), 'wb') as f:
+    f.write(private_pem)
+
+# Generate public key
+public_key = private_key.public_key()
+
+# Serialize public key
+public_pem = public_key.public_bytes(
+    encoding=serialization.Encoding.PEM,
+    format=serialization.PublicFormat.SubjectPublicKeyInfo
+)
+
+with open(os.path.join(routes_dir, 'quorum_public.pem'), 'wb') as f:
+    f.write(public_pem)
+
+print("Keys generated successfully in backend/routes directory.")

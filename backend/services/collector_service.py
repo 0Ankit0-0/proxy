@@ -502,55 +502,18 @@ class LogCollector:
         return collected_files
 
     def detect_usb_drives(self) -> List[Path]:
-        """
-        Detect mounted USB drives (cross-platform)
-        Returns list of mount points containing log files
-        """
+        """Cross-platform USB detection using psutil."""
+        import psutil
         usb_drives = []
         
-        if platform.system() == "Windows":
-            # Windows: Check removable drives
-            try:
-                import win32api
-                import win32file
-            except ImportError:
-                logger.warning("pywin32 not installed, cannot detect USB drives on Windows. Run: pip install pywin32")
-                return usb_drives
-
-            drives = win32api.GetLogicalDriveStrings().split('\000')[:-1]
-            for drive in drives:
-                try:
-                    drive_type = win32file.GetDriveType(drive)
-                    # DRIVE_REMOVABLE = 2
-                    if drive_type == 2:
-                        drive_path = Path(drive)
-                        if drive_path.exists():
-                            usb_drives.append(drive_path)
-                except Exception as e:
-                    logger.warning(f"Error checking drive {drive}: {e}")
+        for partition in psutil.disk_partitions():
+            # Check if removable
+            if 'removable' in partition.opts or (platform.system() == "Linux" and partition.mountpoint.startswith('/media')):
+                drive_path = Path(partition.mountpoint)
+                if drive_path.exists():
+                    usb_drives.append(drive_path)
         
-        elif platform.system() == "Linux":
-            # Linux: Check /media and /mnt for mounted devices
-            media_paths = [Path("/media"), Path("/mnt")]
-            
-            for media_path in media_paths:
-                if media_path.exists():
-                    for item in media_path.iterdir():
-                        if item.is_dir():
-                            # Check if it's a mount point
-                            if os.path.ismount(str(item)):
-                                usb_drives.append(item)
-        
-        elif platform.system() == "Darwin":  # macOS
-            # macOS: Check /Volumes for external drives
-            volumes_path = Path("/Volumes")
-            if volumes_path.exists():
-                for volume in volumes_path.iterdir():
-                    # Exclude system volumes
-                    if volume.name not in ["Macintosh HD", "Preboot", "Recovery", "VM"]:
-                        usb_drives.append(volume)
-        
-        logger.info(f"Detected {len(usb_drives)} USB/removable drives")
+        logger.info(f"Detected {len(usb_drives)} USB/removable drives using psutil.")
         return usb_drives
     
     def collect_from_usb(self, auto_detect: bool = True, mount_point: Path = None) -> List[Path]:

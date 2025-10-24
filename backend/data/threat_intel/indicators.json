@@ -1,0 +1,119 @@
+{
+  "_comment": "Sample offline threat intelligence database for Project Quorum",
+  "_source": "Manually curated + MISP feeds (offline copy)",
+  "_last_updated": "2025-10-24",
+  
+  "ips": [
+    "192.0.2.1",
+    "198.51.100.1",
+    "203.0.113.1",
+    "185.220.101.1",
+    "45.67.34.128"
+  ],
+  
+  "domains": [
+    "malicious-c2.example.com",
+    "phishing-site.example.net",
+    "ransomware-dropper.example.org",
+    "cryptominer.badactor.xyz"
+  ],
+  
+  "hashes": {
+    "md5": [
+      "5d41402abc4b2a76b9719d911017c592",
+      "098f6bcd4621d373cade4e832627b4f6"
+    ],
+    "sha256": [
+      "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "6b86b273ff34fce19d6b804eff5a3f5747ada4eaa22f1d49c01e52ddb7875b4b"
+    ]
+  },
+  
+  "processes": [
+    "mimikatz.exe",
+    "pwdump.exe",
+    "procdump.exe",
+    "lazagne.exe",
+    "psexec.exe",
+    "cobalt_strike.exe"
+  ],
+  
+  "file_paths": [
+    "/tmp/.hidden_miner",
+    "C:\\Windows\\Temp\\suspicious.dll",
+    "/var/tmp/backdoor.sh",
+    "C:\\Users\\Public\\malware.exe"
+  ],
+  
+  "registry_keys": [
+    "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run\\Backdoor",
+    "HKCU\\Software\\Classes\\mscfile\\shell\\open\\command"
+  ],
+  
+  "user_agents": [
+    "Malicious Scanner v1.0",
+    "CredentialHarvester/2.0"
+  ],
+  
+  "ports": [
+    4444,
+    5555,
+    6666,
+    31337
+  ],
+  
+  "cves": [
+    {
+      "id": "CVE-2021-44228",
+      "name": "Log4Shell",
+      "severity": "critical",
+      "patterns": [
+        "\\$\\{jndi:ldap://",
+        "\\$\\{jndi:rmi://",
+        "\\$\\{jndi:dns://"
+      ]
+    },
+    {
+      "id": "CVE-2017-0144",
+      "name": "EternalBlue",
+      "severity": "critical",
+      "patterns": [
+        "SMB.*Transaction.*malformed",
+        "MS17-010"
+      ]
+    }
+  ],
+  
+  "attack_signatures": [
+    {
+      "name": "SQL Injection",
+      "patterns": [
+        "' OR '1'='1",
+        "UNION SELECT",
+        "DROP TABLE",
+        "; DELETE FROM"
+      ],
+      "severity": "high"
+    },
+    {
+      "name": "Command Injection",
+      "patterns": [
+        "&&",
+        "| cat /etc/passwd",
+        "; ls -la",
+        "$(whoami)"
+      ],
+      "severity": "high"
+    },
+    {
+      "name": "Path Traversal",
+      "patterns": [
+        "../../../etc/passwd",
+        "..\\..\\..\\Windows\\System32",
+        "%2e%2e%2f",
+        "....//....//....//etc/passwd"
+      ],
+      "severity": "medium"
+    }
+  ]
+}
