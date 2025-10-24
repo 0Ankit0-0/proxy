@@ -94,70 +94,76 @@ This guide provides instructions on how to set up and run the Project Quorum bac
 3.  **The frontend application can now make API calls** to the backend at `http://localhost:8000`. For example, to upload a log file, the frontend would make a `POST` request to `http://localhost:8000/logs/upload`.
 4.  **CORS is enabled** for the default frontend development server (`http://localhost:3000`), so there should be no cross-origin issues. If the frontend is running on a different port, you may need to update the `ALLOWED_HOSTS` in the `.env` file.
 
-**File Structure(JO nhi haui vo file bana lena or AI train nhi hai to kal karu )** 
-SIH\
+SIH/
 ├── .gitignore
 ├── REPORT.md
 ├── run.md
-├── backend\
+├── backend/
 │   ├── .env.example
 │   ├── app.py
 │   ├── config.py
 │   ├── requirements.txt
-│   ├── core\
+│   │
+│   ├── core/
 │   │   ├── database.py
 │   │   ├── detection_engine.py
 │   │   ├── isolation_validator.py
 │   │   ├── security.py
 │   │   ├── soup_handlers.py
 │   │   └── utils.py
-│   ├── data\
-│   │   ├── duckdb\
-│   │   ├── logs\
-│   │   ├── mitre_attack\
-│   │   │   └── ttp_patterns.json
-│   │   ├── models\
-│   │   ├── rules\
-│   │   │   └── detection_rules.json
-│   │   ├── temp\
-│   │   ├── threat_intel\
-│   │   │   └── indicators.json
-│   │   └── updates\
-│   ├── docs\
+│   │
+│   ├── data/
+│   │   ├── duckdb/
+│   │   ├── logs/
+│   │   ├── mitre_attack/ → TTP patterns (`ttp_patterns.json`)
+│   │   ├── rules/ → Detection rules (`detection_rules.json`)
+│   │   ├── threat_intel/ → Indicators (`indicators.json`)
+│   │   ├── models/
+│   │   ├── temp/
+│   │   └── updates/
+│   │
+│   ├── docs/
 │   │   ├── API_ENDPOINTS.md
 │   │   ├── deployment_modes.md
-│   │   ├── fetaures.md
+│   │   ├── features.md
 │   │   ├── offline_training.md
 │   │   └── progress_report.md
-│   ├── routes\
+│   │
+│   ├── routes/
 │   │   ├── analysis.py
 │   │   ├── health.py
 │   │   ├── logs.py
+│   │   ├── soup.py
 │   │   ├── quorum_private.pem
-│   │   ├── quorum_public.pem
-│   │   └── soup.py
-│   ├── scripts\
+│   │   └── quorum_public.pem
+│   │
+│   ├── scripts/
 │   │   └── verify_offline_ready.py
-│   ├── services\
+│   │
+│   ├── services/
 │   │   ├── ai_engine.py
 │   │   ├── collector_service.py
 │   │   ├── parser_service.py
 │   │   ├── report_service.py
 │   │   └── storage_service.py
-│   ├── utils\
-│   │   └── key_generator.py
-│   └── venv\
-├── frontend\
+│   │
+│   └── utils/
+│       └── key_generator.py
+│
+├── frontend/
 │   ├── .gitignore
 │   ├── eslint.config.js
 │   ├── index.html
-│   ├── package-lock.json
 │   ├── package.json
-│   ├── README.md
 │   ├── vite.config.js
-│   ├── public\
-│   └── src\
-├── PS with Solution\
-└── training_model_code\
+│   ├── public/
+│   └── src/
+│       ├── components/
+│       ├── pages/
+│       └── services/
+│           └── api.js
+│
+├── PS with Solution/
+└── training_model_code/
     ├── enhanced_training.py
     └── Quorum.ipynb
