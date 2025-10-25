@@ -2,6 +2,7 @@ from fastapi import APIRouter
 from core.database import get_db_collection
 from services.ai_engine import AIEngine
 from core.isolation_validator import IsolationValidator
+from config import DEPLOYMENT_MODE
 
 router = APIRouter()
 
@@ -40,4 +41,18 @@ def check_isolation():
             "System is properly isolated" if report["compliant"]
             else "System is not fully isolated - review warnings"
         )
+    }
+
+@router.get("/config")
+def get_frontend_config():
+    """Frontend configuration endpoint"""
+    return {
+        "api_version": "1.0.0",
+        "deployment_mode": DEPLOYMENT_MODE,
+        "features": {
+            "ssh_collection": True,
+            "usb_collection": True,
+            "soup_updates": True,
+            "ai_analysis": True
+        }
     }

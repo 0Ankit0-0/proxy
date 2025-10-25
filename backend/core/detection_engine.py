@@ -13,6 +13,7 @@ from typing import List, Dict, Any
 from datetime import datetime
 import joblib
 from config import MODELS_DIR, DATA_DIR
+from functools import lru_cache
 
 
 class DetectionEngine:
@@ -31,6 +32,7 @@ class DetectionEngine:
         
         # MITRE ATT&CK TTP mapping
         self.ttp_patterns = self._load_ttp_patterns()
+        self._tfidf_cache = {}  # Cache vectorized messages
     
     def _load_threat_intel(self) -> Dict[str, List[str]]:
         """Load offline threat intelligence database"""
@@ -258,6 +260,15 @@ class DetectionEngine:
         new_idx = severity_order.index(new)
         
         return severity_order[max(current_idx, new_idx)]
+
+    @lru_cache(maxsize=1000)
+    def _cached_rule_match(self, message: str) -> tuple:
+        """Cache rule matches for identical messages"""
+        matches = []
+        for rule in self.rules:
+            if self._rule_matches(rule, {'message': message}):
+                matches.append(rule['id'])
+        return tuple(matches)
     
     def batch_analyze(self, log_entries: List[Dict]) -> List[Dict]:
         """Analyze multiple log entries efficiently"""

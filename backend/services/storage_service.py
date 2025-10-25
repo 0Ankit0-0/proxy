@@ -4,6 +4,7 @@ from core.database import get_db_collection
 import polars as pl
 from contextlib import contextmanager
 import logging
+import hashlib
 
 logger = logging.getLogger(__name__)
 
@@ -164,3 +165,18 @@ class StorageService:
             except Exception as e:
                 logger.error(f"Error fetching statistics: {e}")
                 return {}
+
+    @staticmethod
+    def query_logs_streaming(query: str, batch_size: int = 1000):
+        """Stream results for large datasets"""
+        with StorageService.get_connection() as conn:
+            offset = 0
+            while True:
+                batch_query = f"{query} LIMIT {batch_size} OFFSET {offset}"
+                results = conn.execute(batch_query).fetchall()
+                
+                if not results:
+                    break
+                
+                yield results
+                offset += batch_size
