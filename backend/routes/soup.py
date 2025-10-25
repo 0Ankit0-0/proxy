@@ -1,4 +1,4 @@
-from fastapi import APIRouter, UploadFile, File, HTTPException
+from fastapi import APIRouter, UploadFile, File, HTTPException, Request
 from pathlib import Path
 import shutil
 import json
@@ -24,7 +24,7 @@ def load_update_history():
             return json.load(f)
     return []
 
-def save_update_history(update_info: dict):
+def save_update_history(update_info: dict, request: Request = None):
     """Save update to history"""
     history = load_update_history()
     history.append(update_info)
@@ -258,19 +258,6 @@ async def rollback_update(version: str):
             "action": "rollback",
             "target_version": version,
             "status": "simulated"
-        }
-        save_update_history(rollback_info)
-        
-        return {
-            "status": "success",
-            "message": f"Rollback to version {version} simulated",
-            "note": "Full rollback requires backup implementation"
-        }
-        
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e)) "simulated"
         }
         save_update_history(rollback_info)
         

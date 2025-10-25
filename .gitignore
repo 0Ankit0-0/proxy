@@ -30,6 +30,7 @@ htmlcov/
 # === FastAPI / Backend specific ===
 /backend/data/logs/*
 /backend/data/temp/*
+/backend/data/models/*
 # /backend/data/models/*
 /backend/data/updates/*
 /backend/data/duckdb/*.db

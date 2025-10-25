@@ -1,163 +1,229 @@
-# How to Run the Backend 
-# Note:
-1. Do not change backend code or directory structure.
-2. If you modify or create any file, document it in a new .md file (e.g., changes_yourname_date.md) under /docs.
-3. Always include:
-   1. What you created/modified
-   2. Why it was done
-   3. What frontend components depend on it
+# Project Quorum: Backend Setup and Developer Guide
 
+This guide provides comprehensive instructions for setting up, running, and developing the Project Quorum backend.
 
-This guide provides instructions on how to set up and run the Project Quorum backend server.
+## 1. Prerequisites
 
-## Prerequisites
+Before you begin, ensure you have the following installed:
 
--   Python 3.9+
--   A virtual environment tool (like `venv`)
+-   **Python 3.9+**
+-   **Git** for version control.
+-   A package manager for Python, such as `pip`, which comes with Python.
 
-## 1. Setup and Installation
+## 2. Backend Setup
 
-1.  **Navigate to the backend directory:**
+Follow these steps to get the backend running on your local machine.
 
-    ```bash
-    cd backend
-    ```
+### Step 1: Clone the Repository
 
-2.  **Create and activate a virtual environment:**
+If you haven't already, clone the project repository to your local machine.
 
-    On Windows:
-    ```bash
-    python -m venv venv
-    .\venv\Scripts\activate
-    ```
+### Step 2: Navigate to the Backend Directory
 
-    On macOS/Linux:
-    ```bash
-    python3 -m venv venv
-    source venv/bin/activate
-    ```
+Open your terminal or command prompt and navigate to the `backend` directory:
 
-3.  **Install the required dependencies:**
+```bash
+cd backend
+```
 
-    ```bash
-    pip install -r requirements.txt
-    ```
+### Step 3: Create and Activate a Virtual Environment
 
-## 2. Configuration
+It is highly recommended to use a virtual environment to manage project dependencies.
 
-1.  **Create a `.env` file** in the `backend` directory by copying the example file:
+**On Windows:**
 
-    On Windows:
-    ```bash
-    copy .env.example .env
-    ```
-    On macOS/Linux:
-    ```bash
-    cp .env.example .env
-    ```
+```bash
+python -m venv venv
+.\venv\Scripts\activate
+```
 
-2.  **Generate an encryption key** (optional but recommended for security). You can use the provided script:
+**On macOS/Linux:**
 
-    ```bash
-    python utils/key_generator.py
-    ```
-    This will generate a key and print it to the console.
+```bash
+python3 -m venv venv
+source venv/bin/activate
+```
 
-3.  **Update the `.env` file** with the generated `ENCRYPTION_KEY` and other configurations as needed.
+### Step 4: Install Dependencies
 
-    ```
-    # .env
-    ENCRYPTION_KEY=your_generated_key_here
-    # ... other settings
-    ```
+Install all the required Python packages using `pip`:
 
-## 3. Running the Server
+```bash
+pip install -r requirements.txt
+```
 
-1.  **Start the FastAPI server** using `uvicorn` from within the `backend` directory:
+## 3. Configuration
 
-    ```bash
-    uvicorn app:app --host 0.0.0.0 --port 8000 --reload
-    ```
-    -   `--host 0.0.0.0` makes the server accessible on your local network.
-    -   `--port 8000` runs the server on port 8000.
-    -   `--reload` automatically restarts the server when code changes are detected (useful for development).
+The backend uses a `.env` file for configuration.
 
-2.  **Access the API documentation:**
+### Step 1: Create the `.env` File
 
-    Once the server is running, you can access the interactive API documentation (Swagger UI) at:
-    [http://localhost:8000/docs](http://localhost:8000/docs)
+Create a `.env` file by copying the example file:
 
-## 4. Workflow for Your Friend (Frontend Developer)
+**On Windows:**
 
-1.  **Run the backend server** as described above.
-2.  **Use the API documentation** at `http://localhost:8000/docs` to understand the available endpoints, their request formats, and responses.
-3.  **The frontend application can now make API calls** to the backend at `http://localhost:8000`. For example, to upload a log file, the frontend would make a `POST` request to `http://localhost:8000/logs/upload`.
-4.  **CORS is enabled** for the default frontend development server (`http://localhost:3000`), so there should be no cross-origin issues. If the frontend is running on a different port, you may need to update the `ALLOWED_HOSTS` in the `.env` file.
+```bash
+copy .env.example .env
+```
 
-**File Structure(JO nhi haui vo file bana lena or AI train nhi hai to kal karu )** 
-SIH\
+**On macOS/Linux:**
+
+```bash
+cp .env.example .env
+```
+
+### Step 2: Generate an Encryption Key
+
+For security, the application uses an encryption key. A script is provided to generate one.
+
+```bash
+python utils/key_generator.py
+```
+
+Copy the generated key from the console.
+
+### Step 3: Update the `.env` File
+
+Open the `.env` file and paste the generated key as the value for `ENCRYPTION_KEY`. You can also adjust other settings in this file if needed.
+
+```dotenv
+# .env
+ENCRYPTION_KEY=your_generated_key_here
+# ... other settings
+```
+
+## 4. Running the Backend Server
+
+Once the setup and configuration are complete, you can start the backend server.
+
+### Start the Server
+
+From within the `backend` directory, run the following command:
+
+```bash
+uvicorn app:app --host 0.0.0.0 --port 8000 --reload
+```
+
+-   `--host 0.0.0.0`: Makes the server accessible from your local network (e.g., for frontend testing from a different device).
+-   `--port 8000`: Runs the server on port 8000.
+-   `--reload`: Automatically restarts the server when code changes are detected.
+
+You should see output from `uvicorn` indicating that the server is running.
+
+### Accessing the API
+
+The backend API will be available at `http://localhost:8000`.
+
+The interactive API documentation (Swagger UI) is available at `http://localhost:8000/docs`. This is the best place to view all available endpoints, their parameters, and test them directly from your browser.
+
+## 5. Frontend Integration
+
+For frontend developers, the process is straightforward:
+
+1.  Ensure the backend server is running.
+2.  Make API calls from the frontend application to `http://localhost:8000`.
+3.  Refer to the API documentation at `http://localhost:8000/docs` for details on each endpoint.
+
+**CORS:** Cross-Origin Resource Sharing (CORS) is enabled by default for `http://localhost:3000` (the default for Vite/React development servers). If your frontend is running on a different port, you will need to add its origin to the `ALLOWED_HOSTS` variable in the `.env` file.
+
+## 6. Developer Guidelines
+
+To maintain code quality and consistency, please follow these guidelines when contributing to the backend:
+
+-   **Documentation:** If you add or modify backend functionality that the frontend depends on, please document these changes. Create a new Markdown file in the `backend/docs` directory (e.g., `changes_yourname_date.md`) detailing:
+    -   What was changed or created.
+    -   The reason for the change.
+    -   The specific frontend components that will be affected or will use this new functionality.
+-   **Code Style:** Follow existing code style and conventions.
+-   **Directory Structure:** Do not change the existing directory structure without team consensus.
+
+## 7. Project Structure
+
+Here is an overview of the current project structure:
+
+```
+e:/SIH/
 ├── .gitignore
 ├── REPORT.md
 ├── run.md
-├── backend\
+├── backend/
 │   ├── .env.example
 │   ├── app.py
 │   ├── config.py
 │   ├── requirements.txt
-│   ├── core\
+│   ├── core/
 │   │   ├── database.py
 │   │   ├── detection_engine.py
 │   │   ├── isolation_validator.py
 │   │   ├── security.py
 │   │   ├── soup_handlers.py
 │   │   └── utils.py
-│   ├── data\
-│   │   ├── duckdb\
-│   │   ├── logs\
-│   │   ├── mitre_attack\
+│   ├── data/
+│   │   ├── duckdb/
+│   │   ├── logs/
+│   │   ├── mitre_attack/
 │   │   │   └── ttp_patterns.json
-│   │   ├── models\
-│   │   ├── rules\
+│   │   ├── models/
+│   │   │   ├── iforest_model.pkl
+│   │   │   └── tfidf_vectorizer.pkl
+│   │   ├── rules/
 │   │   │   └── detection_rules.json
-│   │   ├── temp\
-│   │   ├── threat_intel\
-│   │   │   └── indicators.json
-│   │   └── updates\
-│   ├── docs\
+│   │   ├── temp/
+│   │   └── threat_intel/
+│   │       └── indicators.json
+│   ├── docs/
 │   │   ├── API_ENDPOINTS.md
 │   │   ├── deployment_modes.md
 │   │   ├── fetaures.md
 │   │   ├── offline_training.md
 │   │   └── progress_report.md
-│   ├── routes\
+│   ├── routes/
 │   │   ├── analysis.py
 │   │   ├── health.py
 │   │   ├── logs.py
 │   │   ├── quorum_private.pem
 │   │   ├── quorum_public.pem
 │   │   └── soup.py
-│   ├── scripts\
+│   ├── scripts/
 │   │   └── verify_offline_ready.py
-│   ├── services\
+│   ├── services/
 │   │   ├── ai_engine.py
 │   │   ├── collector_service.py
 │   │   ├── parser_service.py
 │   │   ├── report_service.py
 │   │   └── storage_service.py
-│   ├── utils\
-│   │   └── key_generator.py
-│   └── venv\
-├── frontend\
+│   └── utils/
+│       └── key_generator.py
+├── frontend/
 │   ├── .gitignore
 │   ├── eslint.config.js
 │   ├── index.html
 │   ├── package-lock.json
 │   ├── package.json
+│   ├── postcss.config.cjs
 │   ├── README.md
+│   ├── tailwind.config.cjs
 │   ├── vite.config.js
-│   ├── public\
-│   └── src\
-├── PS with Solution\
-└── training_model_code\
+│   ├── public/
+│   └── src/
+│       ├── App.css
+│       ├── App.jsx
+│       ├── index.css
+│       ├── main.jsx
+│       ├── assets/
+│       ├── components/
+│       ├── data/
+│       ├── lib/
+│       ├── pages/
+│       ├── styles/
+│       └── utils/
+├── PS with Solution/
+│   ├── PS.md
+│   ├── PS.txt
+│   ├── Solution_ppt.pdf
+│   ├── solution.md
+│   └── soultion.txt
+└── training_model_code/
     ├── enhanced_training.py
     └── Quorum.ipynb
+```

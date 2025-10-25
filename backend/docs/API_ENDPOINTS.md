@@ -124,15 +124,43 @@ All endpoints return standardized error responses:
   ```json
   {
     "status": "success",
-    "analyzed": 1000,
-    "threats_found": 15,
+    "analyzed": 5000,
+    "threats_found": 47,
     "severity_breakdown": {
-        "critical": 1,
-        "high": 4,
-        "medium": 10
+      "critical": 3,
+      "high": 12,
+      "medium": 25,
+      "low": 7
     },
     "top_threats": [
-        // ... array of threat objects
+      {
+        "log_entry": {
+          "message": "mimikatz.exe executed: sekurlsa::logonpasswords"
+        },
+        "is_threat": true,
+        "severity": "critical",
+        "detections": [
+          {
+            "type": "ttp",
+            "name": "OS Credential Dumping",
+            "score": 1.0,
+            "details": {
+              "ttp_id": "T1003",
+              "tactic": "Credential Access"
+            }
+          },
+          {
+            "type": "rule",
+            "name": "Mimikatz Credential Dumping",
+            "score": 1.0
+          },
+          {
+            "type": "ioc",
+            "name": "Malicious Process Detected",
+            "indicator": "mimikatz.exe"
+          }
+        ]
+      }
     ]
   }
   ```
