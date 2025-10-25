@@ -31,7 +31,6 @@ htmlcov/
 /backend/data/logs/*
 /backend/data/temp/*
 /backend/data/models/*
-# /backend/data/models/*
 /backend/data/updates/*
 /backend/data/duckdb/*.db
 /backend/tests/__pycache__/

@@ -11,18 +11,17 @@ import re
 from pathlib import Path
 from typing import List, Dict, Any
 from datetime import datetime
-import joblib
-from config import MODELS_DIR, DATA_DIR
+from config import DATA_DIR
 from functools import lru_cache
+from services.ai_engine import AIEngine
 
 
 class DetectionEngine:
     """Unified detection engine for Project Quorum"""
     
     def __init__(self):
-        # Load AI model
-        self.ai_model = joblib.load(MODELS_DIR / "iforest_model.pkl")
-        self.vectorizer = joblib.load(MODELS_DIR / "tfidf_vectorizer.pkl")
+        # Load AI engine
+        self.ai_engine = AIEngine()
         
         # Load threat intelligence (offline)
         self.threat_intel = self._load_threat_intel()
@@ -51,7 +50,7 @@ class DetectionEngine:
         rules = []
         for rule_file in rules_dir.glob("*.json"):
             with open(rule_file, 'r') as f:
-                rules.append(json.load(f))
+                rules.extend(json.load(f))
         
         return rules
     
@@ -125,13 +124,19 @@ class DetectionEngine:
     
     def _detect_anomaly(self, message: str) -> Dict:
         """AI-based anomaly detection"""
-        X = self.vectorizer.transform([message])
-        score = self.ai_model.decision_function(X.toarray())[0]
-        prediction = self.ai_model.predict(X.toarray())[0]
+        if not message or not isinstance(message, str):
+            return {'is_anomaly': False, 'score': 0.0}
+
+        analysis_result = self.ai_engine.analyze([message])
         
+        is_anomaly = analysis_result['anomaly_count'] > 0
+        score = 0.0
+        if is_anomaly:
+            score = analysis_result['anomalies'][0]['score']
+
         return {
-            'is_anomaly': prediction == 1,
-            'score': float(score)
+            'is_anomaly': is_anomaly,
+            'score': score
         }
     
     def _check_rules(self, log_entry: Dict) -> List[Dict]:

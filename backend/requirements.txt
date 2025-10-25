@@ -19,6 +19,7 @@ pyod==1.1.2           # Anomaly detection engine
 joblib==1.5.2
 tensorflow==2.20.0 # For TFLite model inference
 numpy==2.3.4
+combo
 
 # Security & Crypto
 cryptography>=41.0.0
